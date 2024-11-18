@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Resizable Split Layout</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+    }
+
+    .main-content {
+        flex: 4; /* 80% initially */
+        padding: 1em;
+        overflow-y: auto;
+        background-color: #f9f9f9; /* Optional: Add some distinction */
+    }
+
+    .resizer {
+        width: 5px;
+        background-color: #ccc;
+        cursor: ew-resize;
+        position: relative;
+    }
+
+    .resizer:hover {
+        background-color: #888;
+    }
+
+    .toc-container {
+        flex: 1; /* 20% initially */
+        padding: 1em;
+        overflow-y: auto;
+        background-color: #f0f0f0; /* Optional: Add some distinction */
+        border-left: 1px solid #ddd;
+        font-size: 80%; /* Reduce font size to 80% */
+    }
+
+    .toc ul ul {
+        display: none;
+        list-style-type: none; /* Keep default styling for sublists */
+        padding-left: 1em; 
+        margin-bottom: 0px;
+    }
+    .toc li {
+        cursor: pointer;
+        list-style-type: none; /* Keep default styling for sublists */
+        padding: 0.2em 0; /* Ensure a comfortable clickable area */
+    }
+
+    .toc li.expanded > ul {
+        display: block;
+    }
+
+    .toc li:before {
+        content: '▶'; /* Right arrow when collapsed */
+        position: relative;
+        left: -20px;
+    }
+
+    .toc li.expanded:before {
+        content: '▼'; /* Downward arrow when expanded */
+    }    
+  </style>
+</head>
+<body>
+  <div class="main-content">
+    {{ body }}
+  </div>
+  <div class="resizer"></div>
+  <div class="toc-container">
+    <strong>Table of Contents:</strong>
+    <div class="toc">
+      {{ toc }}
+    </div>
+  </div>
+
+  <script>
+    const resizer = document.querySelector('.resizer');
+    const mainContent = document.querySelector('.main-content');
+    const tocContainer = document.querySelector('.toc-container');
+
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.body.style.cursor = 'ew-resize';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+
+      // Calculate the new widths
+      const totalWidth = mainContent.offsetWidth + tocContainer.offsetWidth;
+      const newMainWidth = e.clientX;
+      const newTocWidth = totalWidth - newMainWidth;
+
+      // Prevent collapsing below minimum sizes
+      if (newMainWidth > 100 && newTocWidth > 100) {
+        mainContent.style.flex = `0 0 ${newMainWidth}px`;
+        tocContainer.style.flex = `0 0 ${newTocWidth}px`;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isResizing = false;
+      document.body.style.cursor = 'default';
+    });
+
+    document.querySelectorAll('.toc li').forEach(li => {
+        // Attach a click event to each <li> element
+        li.addEventListener('click', event => {
+            // Toggle the "expanded" class on the clicked <li>
+            li.classList.toggle('expanded');
+
+            // Prevent the click event from affecting child elements
+            event.stopPropagation();
+        });
+    });
+
+  </script>
+</body>
+</html>

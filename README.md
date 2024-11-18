@@ -2,4 +2,4 @@
 
 ## kodosumi core package
 
-The kodosumi framework is under development.
+The kodosumi framework is under development.pip 
