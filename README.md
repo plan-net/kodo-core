@@ -1,2 +1,5 @@
 # kodo-core
-kodosumi core package
+
+## kodosumi core package
+
+The kodosumi framework is under development.
