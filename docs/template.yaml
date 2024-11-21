@@ -3,7 +3,7 @@
 # 2) remove the comments
 # 3) list all used variables ({...}) in the input section
 
-creco: 
+kodo: 
   version: 0.1
   default: &default
     langchain_openai.ChatOpenAI(temperature=0.1, model="gpt-4o")
