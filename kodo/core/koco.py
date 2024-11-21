@@ -9,52 +9,13 @@ result files persist in `./data/logs`, `./data/output` and `./data/run`.
 You can render result files from `./data/run` event files (.ev), for example
 
     creceo render ./data/run/20210101.ev
-
-
-# Background Information 
-
-### on the kodo architecture
-
-kodo is an event driven system. Events are orchestracted by agents, and act as 
-a source for agent monitoring and optimisation. There are mental actions, for 
-example _thoughts_, _observations_, and conclusions. There are behavioral 
-actions and _tool usage_. Actions are related to tasks. Tasks are modular 
-elements in a sequential or hierarchical chain towards an overal goal. This is 
-the agent's goal.
-
-
-On **kodo level** the following events are defined:
-
-* **meta events**
-  * **input** - user or system input data (cli or api)
-  * **version** - system version
-  * **config** - yaml source
-  * **crew** - crew info
-* **agent and task registration**
-  * **agent** - agent and tools info
-  * **task** - task info, grouped by agents
-* **processing events**
-  * **action** - action info
-  * **action-error** - action exception info
-  * **result** - intermediate result, grouped by agents
-  * **result-error** - result exception info
-  * **progress** - progress indicator
-  * **final** - the final result
-
-
-### on kodo infrastructure
-
-* runs on local host
-* scales automatically within boundaries
-* runs in service
-* streams events
-* state management and response 
 """
 import datetime
 import re
 import shutil
 import sys
 from collections import OrderedDict
+import os
 from pathlib import Path
 
 import click
@@ -63,6 +24,7 @@ from dotenv import load_dotenv
 import markdown2
 import webbrowser
 import jinja2
+import tempfile
 
 import kodo.core.engine
 import kodo.core.log
@@ -173,15 +135,30 @@ def vacuum(force, dry):
 
 
 @cli.command()
-@click.argument('source', type=click.File("r"))
-@click.argument('target', required=False, type=click.File("w"))
+@click.argument('source', required=False, type=click.File("r"))
+@click.option('--target', required=False, type=click.File("w"))
 @click.option('--force', '-f', is_flag=True, help='Overwrite target file.')
 @click.option('--template', type=click.File("r"), help='Template file.')
-@click.option('--format', type=click.Choice(['md', 'html']), default='md', help='Output format.')
+@click.option('--format', type=click.Choice(['md', 'html', 'obsidian']), default='md', help='Output format.')
 @click.option('--open', is_flag=True, help='Open target file in default app.')
-def render(source, target, force, template, format, open):
+@click.option('--latest', is_flag=True, help='Render latest flow execution.')
+def render(source, target, force, template, format, open, latest):
     """Render yaml file."""
 
+    if source is None:
+        if latest:
+            run_dir = Path(setting.RUN_DIRECTORY)
+            if not run_dir.exists():
+                raise FileNotFoundError("run directory does not exist")
+            latest_file = max(
+                run_dir.glob("*.ev"), 
+                key=lambda f: f.stat().st_mtime, 
+                default=None
+            )
+            if latest_file:
+                source = latest_file.open("r")
+    if source is None:
+        raise FileNotFoundError("no source file given")
     echo(f"rendering {source.name}")
     data = kodo.core.engine.revisit(source)
 
@@ -200,7 +177,8 @@ def render(source, target, force, template, format, open):
         return output.append(r + eol)
 
     final = data.get("final", None)
-
+    if data.get("crew", None) is None:
+        raise RuntimeError("crew not found")
     # header
     _add(f"# {data['crew']['kodo_name']}")
     _add(f"# INPUT")
@@ -338,19 +316,39 @@ def render(source, target, force, template, format, open):
         body = tmpl.render(
             body=md.convert(body),
             toc=md._toc_html
-        )
+        )        
+    vault =os.environ.get("VAULT", None)
+    if format == "obsidian":
+        if vault is None:
+            raise RuntimeError("--format obsidian requires VAULT environment variable")
+        if target is None:
+            raise RuntimeError("--format obsidian requires --target")
+        if target.name != "<stdout>":
+            target = Path(vault).joinpath(target.name)
+            if target.exists() and not force:
+                raise FileExistsError(
+                    f"Target file {target} already exists. Use --force to overwrite.")
+            target = target.open("w")
+        vault_name = Path(vault).name
+        fullname = Path(target.name).relative_to(vault)
+        url = f"obsidian://open?vault={vault_name}&file={fullname}"
+    else:
+        if target:
+            url = f"file://{Path(target.name).resolve()}"
+            if not force and target.name != "<stdout>":
+                if Path(target.name).exists():
+                    raise FileExistsError(
+                        f"Target file {target.name} already exists. Use --force to overwrite.")
+        elif force or open:
+            raise FileExistsError(f"--force or --open do not make sense without --target")
     if target:
-        if not force and target.name != "<stdout>" and Path(target.name).exists():
-            raise FileExistsError(
-                f"Target file {target.name} already exists. Use --force to overwrite.")
+        echo(f"writing to {target.name}")
         target.write(body)
         if open:
-            fullname = Path(target.name).resolve()
-            logger.debug(f"opening {fullname}")
-            webbrowser.open(f"file://{fullname}")
+            echo(f"opening {url}")
+            webbrowser.open(url)
     else:
         print(body)
-
 
 cli.add_command(check)
 cli.add_command(run)

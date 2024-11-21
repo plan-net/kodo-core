@@ -26,15 +26,27 @@ Clone **kodosumi**, checkout branch `cli`, install and setup your environment. O
     cd kodo-core
     git checkout cli
     python3 -m venv .venv  # this might be different depending on your OS Python installation
+
+    # on macos:
+    # ~~~~~~~~~~~
     source .venv/bin/activate
     pip install -e .
     touch .env
+    code .env
+
+    # on windows:
+    # ~~~~~~~~~~~
+    .venv\Scripts\activate
+    pip install -e .
+    type nul > .env
+    code .env
 
 Open up file `~/Project/kodo-core/.env` and define environment variables:
 
     OPENAI_API_KEY=sk-proj-...XYZ
     OTEL_SDK_DISABLED=true
     LITELLM_LOG=WARNING
+    VAULT=/Users/raum/Project/pyrob4/bib/mrau
 
 Then `check`, `run` and `render` a flow with
 
