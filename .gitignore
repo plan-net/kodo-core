@@ -164,3 +164,4 @@ cython_debug/
 # kodosumi
 data/
 .vscode/launch.json
+crews/dev
