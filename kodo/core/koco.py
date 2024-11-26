@@ -136,7 +136,7 @@ def vacuum(force, dry):
 
 @cli.command()
 @click.argument('source', required=False, type=click.File("r"))
-@click.option('--target', required=False, type=click.File("w"))
+@click.option('--target', required=False, type=click.File("w", encoding="utf-8x"))
 @click.option('--force', '-f', is_flag=True, help='Overwrite target file.')
 @click.option('--template', type=click.File("r"), help='Template file.')
 @click.option('--format', type=click.Choice(['md', 'html', 'obsidian']), default='md', help='Output format.')
