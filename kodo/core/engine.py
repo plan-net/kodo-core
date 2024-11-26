@@ -189,7 +189,7 @@ def load_agents(name: str, config: dict) -> Tuple[crewai.Agent, dict]:
     config["name"] = name
     # config["step_callback"] = _agent_step_callback
     config["llm"] = _resolve_object(config.get("llm", None))
-    agent = crewai.Agent(**config)
+    agent = crewai.Agent(**{k: v for k, v in config.items() if k is not None})
     agent.__dict__["kodo_name"] = name.strip()
     return agent, {}
 
@@ -230,7 +230,8 @@ def load_tasks(name: str, config: dict) -> Tuple[crewai.Task, dict]:
     config["agent"] = None
     config["context"] = None
     config["name"] = name.strip()
-    return crewai.Task(**config), lazyload
+    task = crewai.Task(**{k: v for k, v in config.items() if k is not None})
+    return task, lazyload
 
 
 def load_crews(name: str, config: dict) -> Tuple[crewai.Crew, dict]:
@@ -282,7 +283,7 @@ def load_crews(name: str, config: dict) -> Tuple[crewai.Crew, dict]:
         "tasks": config.get("tasks", None) or [],
         "agents": config.get("agents", None) or [],
     }
-    crew = crewai.Crew(**config)
+    crew = crewai.Crew(**{k: v for k, v in config.items() if k is not None})
     crew.__dict__["kodo_name"] = name.strip()
     return crew, lazyload
 
