@@ -1,0 +1,42 @@
+kodo: 0.1
+
+agents:
+
+  lead_market_analyst1:
+    role: >
+      Lead Market Analyst
+    goal: >
+      Conduct amazing analysis of the products and competitors, 
+      providing in-depth insights to guide marketing strategies.
+    backstory: >
+      As the Lead Market Analyst at a premier digital marketing 
+      firm, you specialize in dissecting online business 
+      landscapes.
+    tools: 
+      - crewai_tools.SerperDevTool()
+      - crewai_tools.ScrapeWebsiteTool()
+
+# ---------------------------------------------------------------------------- #
+
+tasks:
+  research_task1:
+    description: >
+      Conduct a thorough research about the customer and 
+      competitors in the context of {customer_domain}.
+      Make sure you find any interesting and relevant 
+      information given the current year is 2024.
+      We are working with them on the following project: 
+      {project_description}.
+    expected_output: >
+      A complete report on the customer and their customers 
+      and competitors,including their demographics, preferences, 
+      market positioning and audience engagement1
+    agent: lead_market_analyst1
+
+crews:
+  MarketingPosterCrew1:
+    agents:
+      - lead_market_analyst1
+    tasks:
+      - research_task1
+

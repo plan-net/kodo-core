@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+
+[project]
+name = "kodo"
+version = "0.0.0"  # Replace with kodo.__version__ if dynamically set
+description = "A brief description of your project"
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.6"
+dependencies = [
+    "requests",
+    "click",
+    "pyyaml",
+    "crewai",
+    "crewai_tools",
+    "pydantic",
+    "pydantic-settings",
+    "markdown2",
+    "Jinja2",
+    "web_browser",
+    "litestar[standard]"
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "isort",
+    "autopep8"
+]
+
+[project.scripts]
+koco = "kodo.core.koco:cli"

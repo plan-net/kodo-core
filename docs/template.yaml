@@ -1,0 +1,73 @@
+# usage:
+# 1) replace all <...> with the appropriate values
+# 2) remove the comments
+# 3) list all used variables ({...}) in the input section
+
+kodo: 
+  version: 0.1
+  default: &default
+    langchain_openai.ChatOpenAI(temperature=0.1, model="gpt-4o")
+  
+agents:
+
+  <short agent name>:
+    role: |
+      <role name>
+    goal: |
+      <goal>
+    backstory: |
+      <backstory>
+    tools: 
+      - package.module.Class()
+    # advanced settings
+    max_iter: 25  # Maximum number of iterations for an agent to execute a task.
+    max_rpm: ~ # Maximum number of requests per minute for the agent execution to be respected.
+    memory: false  # Whether the agent should have memory or not.
+    allow_delegation: false  # Whether the agent is allowed to delegate tasks to other agents.
+    llm: ~  # The languagete model that will run the agent with package.module.Class().
+    cache: true  # Whether the agent should cache the results of the execution.
+    allow_code_execution: false  # Enable code execution for the agent. 
+    max_retry_limit: 2  # Maximum number of retries for an agent to execute a task when an error occurs.
+    respect_context_window: true  # Summary strategy to avoid overflowing the context window. 
+    code_execution_mode: safe  # Determines the mode for code execution: "safe" (using Docker) or "unsafe" (direct execution on the host machine).  
+    max_execution_time: ~  # Maximum execution time in seconds for the agent in seconds.
+
+# ---------------------------------------------------------------------------- #
+
+tasks:
+  <short task name>:
+    description: |  # Descriptive text detailing task's purpose and execution.
+      <description>
+    expected_output: |  # Clear definition of expected task outcome.
+      <expected_output>  
+    agent: <short agent name>  # Agent responsible for task execution. Represents entity performing task.
+    # advanced settings
+    context: 
+      - <short task name>  # List of Task instances providing task context or input data.
+    tools: 
+      - package.module.Class()  # List of tools/resources limited for task execution.
+    async_execution: false  # Boolean flag indicating asynchronous task execution.
+
+# ---------------------------------------------------------------------------- #
+
+# input: 
+# list of input variables
+# - <name>: <description>
+#
+
+crews:
+  <crew name>:
+    agents:  # List of agents part of this crew.
+      - <short agent name>
+      - ...
+    tasks:  # List of tasks assigned to the crew.
+      - <short task name>
+      - ...
+    # advanced settings
+    planning: false  # Plan the crew execution and add the plan to the crew.
+    process: sequential  #  or "hierarchical" - The process flow that the crew will follow.
+    cache: true  # Whether the crew should use a cache to store the results of the tools execution.
+    memory: true  # Whether the crew should use memory to store memories of it's execution.
+    max_rpm: ~  # Maximum number of requests per minute for the crew execution to be respected.
+    manager_llm: ~  # The language model that will run manager agent with package.module.Class().
+    planning_llm: ~  # The language model that will run the planning agentwith package.module.Class().
