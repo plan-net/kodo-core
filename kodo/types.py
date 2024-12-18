@@ -65,9 +65,9 @@ class Provider(BaseModel):
     connect: Optional[bool] = False
 
 
-class ProviderResponse(BaseModel):
-    url: str
-    nodes: Dict[str, Node]
+# class ProviderResponse(BaseModel):
+#     url: str
+#     nodes: Dict[str, Node]
 
 
 class ProviderDump(BaseModel):
