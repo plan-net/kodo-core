@@ -2,6 +2,7 @@ import json
 import os
 import urllib
 from typing import Optional, List
+from pathlib import Path
 
 import uvicorn
 from litestar import Litestar
@@ -19,9 +20,10 @@ from kodo.service.routes import update_registry, update_node
 DEFAULT_LOADER = "kodo.service.node:_default_loader"
 
 
-def _default_loader():
+def _default_loader(state: State) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     loader.reload()
+    cache = loader.load_from_cache(state.cache)
     return loader
 
 
@@ -53,6 +55,7 @@ def create_app(
     provider: bool = False,
     explorer: bool = False,
     loader: str | None = DEFAULT_LOADER,
+    cache: str | None = setting.CACHE_DATA,
     debug: bool = True) -> Litestar:
     """
     Factory method to instantiate the litestar application object and to load
@@ -83,24 +86,21 @@ def create_app(
             os.environ.get("iKODO_CONNECT", '{}'))
                 or (connect if connect else []
         ),
-
         # indicates if this node offers flows on request /flows and /flow
         "NODE": os.environ.get("iKODO_NODE", node),
-
         # indicates if this node is a registry for nodes, other registries and
         # registry providers to /register (nodes) and /connect (registries and
         # providers) and to /update/registry and /update/node on changes
         "REGISTRY": os.environ.get("iKODO_REGISTRY", registry),
-
         # indicates if this node is a provider for nodes to /register, but no
         # /connect
         "PROVIDER": os.environ.get("iKODO_PROVIDER", provider),
-
         # indicates if this node responds to /flows
         "EXPLORER": os.environ.get("iKODO_EXPLORER", explorer),
-
         # the loader callback to load the initial .flows, .nodes and .providers
-        "LOADER": os.environ.get("iKODO_LOADER", loader)
+        "LOADER": os.environ.get("iKODO_LOADER", loader),
+        # registry cache directory
+        "CACHE": os.environ.get("iKODO_CACHE", cache)
     }
 
     env = kodo.types.InternalEnviron(**data)  # type: ignore
@@ -127,24 +127,23 @@ def create_app(
         # semaphore for pending event processings
         "event": 0,
         "heartbeat": None,
-        "status": "unknown"
+        "status": "unknown",
+        "cache": env.CACHE
     })
     # load flows, nodes, providers
     callback = kodo.helper.parse_factory(env.LOADER or DEFAULT_LOADER)
-    oload: kodo.worker.loader.Loader = callback()
+    oload: kodo.worker.loader.Loader = callback(state)
     if not state.node and oload.flows:
         raise ValueError("flows allowed for nodes only")
-    if not state.registry and (oload.nodes or oload.providers):
+    if not state.registry and oload.providers:
         raise ValueError(
             "nodes/providers allowed for registry/provider only")
-    if not state.registry and oload.nodes:
-        raise ValueError("nodes allowed for registry/provider only")
     # load initial data from .cache
     if state.node:
         state.flows = oload.flows_dict()
         state.entry_points = oload.entry_points_dict()
     if state.registry or state.provider:
-        state.nodes = oload.nodes_dict()
+        #state.nodes = oload.nodes_dict()
         state.providers = oload.providers_dict()
     app = Litestar(
         route_handlers=[NodeConnector],
@@ -159,6 +158,8 @@ def create_app(
         state=state,
         debug=debug
     )
+    if Path(state.cache).exists():
+        logger.info(f"{state.url} loading from cache {state.cache}")
     logger.info(f"{state.url} successfully started with mode "
                 + "+".join([kind for kind in (
                     "node", "registry", "provider", "explorer")
@@ -175,6 +176,7 @@ def run_service(
         provider: bool = False,
         explorer: bool = False,
         loader: Optional[str] = DEFAULT_LOADER,
+        cache: Optional[str] = setting.CACHE_DATA,
         reload: bool = setting.RELOAD,
         debug: bool = True) -> None:
     """
@@ -191,6 +193,8 @@ def run_service(
         raise ValueError("Missing mode and node purpose")
     if connect is None:
         connect = []
+    if cache:
+        Path(cache).parent.mkdir(parents=True, exist_ok=True)
     env_settings = kodo.types.InternalEnviron(
         URL=url,
         ORGANIZATION=organization,
@@ -200,6 +204,7 @@ def run_service(
         PROVIDER=provider,
         EXPLORER=explorer,
         LOADER=loader,
+        CACHE=cache,
         DEBUG=debug
     )
     # forward to create_app with iKODO_* environment variables

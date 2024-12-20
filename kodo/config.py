@@ -18,6 +18,7 @@ class Config(BaseSettings):
     REQUEST_TIMEOUT: int = 30
     REGISTRY: List[str] | None = None
     EXEC_DATA: str = "./data/exec"
+    CACHE_DATA: str = "./data/cache.json"
 
     model_config = {
         "env_file": ".env",
@@ -35,8 +36,13 @@ class Config(BaseSettings):
 
 
     @field_validator("EXEC_DATA", mode="before")
-    def make_exec_data_dir(cls, v):
+    def make_dir(cls, v):
         Path(v).mkdir(parents=True, exist_ok=True)
+        return v
+
+    @field_validator("CACHE_DATA", mode="before")
+    def make_parent(cls, v):
+        Path(v).parent.mkdir(parents=True, exist_ok=True)
         return v
 
 

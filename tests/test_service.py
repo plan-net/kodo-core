@@ -7,6 +7,9 @@ import httpx
 import pandas as pd
 import pytest
 import traceback
+from pathlib import Path
+
+from litestar.datastructures import State
 
 import kodo.service.node
 import kodo.types
@@ -15,9 +18,10 @@ from kodo.config import setting
 import kodo.worker.loader
 import kodo.worker.main
 
+
 def _create_service(
         port, connect, node, registry, provider, explorer, loader, debug,
-        organization):
+        organization, cache):
     kodo.service.node.run_service(
         url=f"http://localhost:{port}",
         connect=connect,
@@ -26,6 +30,7 @@ def _create_service(
         provider=provider,
         explorer=explorer,
         loader=loader,
+        cache=cache,
         organization=organization,
         reload=False,
         debug=debug)
@@ -57,10 +62,11 @@ class Process(multiprocessing.Process):
 
 class Controller:
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, tmp_path, *args, **kwargs):
         self._port = PORT
         self.server = []
         self.client = []
+        self.tmp_path = tmp_path
 
     async def node(self, *args, **kwargs):
         return await self._start(
@@ -80,8 +86,8 @@ class Controller:
     async def _start(self, node, registry, provider, explorer, loader=None,
                      connect=None, debug=True, organization=None, **kwargs):
         port = self._port
+        cache_file = kwargs.get("cache", self.tmp_path / f"port_{port}.pkl")
         self._port += 1
-
         proc = Process(
             target=_create_service,
             kwargs=dict(
@@ -93,6 +99,7 @@ class Controller:
                 explorer=explorer,
                 loader=loader,
                 organization=organization,
+                cache=str(cache_file),
                 debug=debug
             )
         )
@@ -112,7 +119,7 @@ class Controller:
             await backoff.wait()
         if proc.exception:
             raise proc.exception[0].__class__(proc.exception[0].args)
-        raise RuntimeError(proc.exception)
+        raise RuntimeError("unexpected error")
 
     def close(self):
         while self.server:
@@ -158,8 +165,8 @@ class Controller:
 
 
 @pytest.fixture
-def controller():
-    cntrl = Controller()
+def controller(tmp_path):
+    cntrl = Controller(tmp_path)
     yield cntrl
     cntrl.close()
 
@@ -267,7 +274,7 @@ async def test_connect_many(controller):
         assert ts1 is not None and ts2 is not None
 
 
-def loader1():
+def loader1(state: State=None) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     return loader
 
@@ -297,7 +304,7 @@ async def test_load_no_flows(controller):
 empty = None
 
 
-def loader3():
+def loader3(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(1, 4):
         loader.add_flow(
@@ -325,7 +332,7 @@ async def test_load_node(controller):
     print(js)
 
 
-def loader4():
+def loader4(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(4, 7):
         loader.add_flow(
@@ -362,7 +369,7 @@ async def test_node_register(controller):
     assert list(js["name"].values()) == ['Test 4', 'Test 5', 'Test 6']
 
 
-def loader5():
+def loader5(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(7, 10):
         loader.add_flow(
@@ -392,7 +399,7 @@ async def test_post_update(controller):
     print(response)
 
 
-def one_flow():
+def one_flow(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     loader.add_flow(
         name=f"Test 1", 
@@ -516,7 +523,7 @@ async def test_registry_scenario(controller):
         assert cmp.equals(df)
 
 
-def loader6():
+def loader6(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(10, 13):
         loader.add_flow(
@@ -601,21 +608,27 @@ def test_load_prop():
     data4 = _load_prop(32, 39)
     data5 = _load_prop(39, 50)
 
-def prop1():
+
+def prop1(*args, **kwargs):
     return _load_prop(0, 8)
 
-def prop2():
+
+def prop2(*args, **kwargs):
     return _load_prop(8, 20)
 
-def prop3():
+
+def prop3(*args, **kwargs):
     return _load_prop(20, 32)
 
-def prop4():
+
+def prop4(*args, **kwargs):
     return _load_prop(32, 39)
 
-def prop5():
+
+def prop5(*args, **kwargs):
     return _load_prop(39, 50)
-    
+
+
 async def test_registry_props(controller):
     registry1 = await controller.registry(organization="Serviceplan")
     node1 = await controller.node(
@@ -642,13 +655,43 @@ async def test_registry_props(controller):
         loader="tests.test_service:prop5")
     await controller.idle()
     js1 = await controller.get(registry1, "/map", 200)
-    json.dump(js1, open("js1-map.json", "w"), indent=2)
+    # json.dump(js1, open("js1-map.json", "w"), indent=2)
     js2 = await controller.get(registry2, "/map", 200)    
-    json.dump(js2, open("js2-map.json", "w"), indent=2)
+    # json.dump(js2, open("js2-map.json", "w"), indent=2)
     js1 = await controller.get(registry1, "/flows", 200)
-    json.dump(js1, open("js1-flows.json", "w"), indent=2)
+    # json.dump(js1, open("js1-flows.json", "w"), indent=2)
     js2 = await controller.get(registry2, "/flows", 200)        
-    json.dump(js1, open("js2-flows.json", "w"), indent=2)
+    # json.dump(js1, open("js2-flows.json", "w"), indent=2)
     df1 = pd.DataFrame(js1)
-    df2 = pd.DataFrame(js1)    
-    assert df1.equals(df2)
+    df2 = pd.DataFrame(js2)    
+    cols = ["node", "name", "url", "author", "description", "tags", "created", 
+            "modified", "heartbeat"]
+    assert df1[cols].reset_index(drop=True).equals(
+        df2[cols].reset_index(drop=True))
+    return registry1
+
+
+async def test_registry_cache(controller, tmp_path):
+    registry1 = await test_registry_props(controller)
+    registry3 = await controller.registry(
+        organization="Plan.Net Journey", connect=[registry1.base_url])
+    js3 = await controller.get(registry3, "/map", 200)        
+    # json.dump(js3, open("js3-maps.json", "w"), indent=2)
+    df3 = pd.DataFrame(await controller.get(registry3, "/flows", 200))
+    df1 = pd.DataFrame(await controller.get(registry1, "/flows", 200))
+    assert df1.drop(columns=["source"]).reset_index(drop=True).equals(
+        df3.drop(columns=["source"]).reset_index(drop=True))
+    # hack to cache file:
+    cache = (
+        controller.tmp_path 
+        / f"port_{str(registry3.base_url).split(":")[2]}.pkl")
+    registry4 = await controller.registry(
+        organization="Plan.Net Journey", connect=[registry1.base_url],
+        cache=str(cache))
+    df4 = pd.DataFrame(await controller.get(registry4, "/flows", 200))
+    df4.drop(columns=["source"]).reset_index(drop=True).equals(
+        df1.drop(columns=["source"]).reset_index(drop=True))   
+    data = kodo.types.ProviderDump.model_validate_json(
+        Path(cache).open("r").read())
+    Path(f"{setting.CACHE_DATA}.test").open("w").write(
+        data.model_dump_json(indent=2))

@@ -2,9 +2,12 @@ import functools
 import inspect
 import os
 from typing import Any, Callable, Dict, Optional, List
+import pickle
+from pathlib import Path
 
 import kodo.helper
 from kodo.error import DuplicateFlowError
+import kodo.types
 
 
 async def DEFAULT_LANDING_PAGE():
@@ -47,11 +50,20 @@ class Loader:
 
     def __init__(self): 
         self.flows = {}
-        self.nodes = {}
+        # self.nodes = {}
         self.providers = {}
 
     def reload(self):
+        # todo: discover flows
         pass
+
+    def load_from_cache(self, filename: str):
+        if Path(filename).exists():
+            with Path(filename).open("r") as file:
+                data = file.read()
+            dump = kodo.types.ProviderDump.model_validate_json(data)
+            self.providers = dump.providers
+
 
     def flows_dict(self):
         return {
@@ -65,11 +77,11 @@ class Loader:
             for f in self.flows.values()
         }
 
-    def nodes_dict(self):
-        return {}
+    # def nodes_dict(self):
+    #     return {}
 
     def providers_dict(self):
-        return {}
+        return self.providers
 
     def entry_points_dict(self):    
         return {f["url"]: f["entry_point"] for f in self.flows.values()}

@@ -13,6 +13,7 @@ class InternalEnviron(BaseModel):
     PROVIDER: bool
     EXPLORER: bool
     LOADER: Optional[str] = None
+    CACHE: Optional[str] = None
     DEBUG: bool
 
     @field_validator('URL', mode='before')

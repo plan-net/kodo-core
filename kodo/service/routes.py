@@ -1,8 +1,9 @@
 from typing import Optional
 from uuid import uuid4, UUID
-
+import pickle
 import httpx
 import pandas as pd
+from pathlib import Path
 
 from litestar import Litestar, Request, Response, get, post
 from litestar.datastructures import State
@@ -95,6 +96,31 @@ def _release(state: State):
     logger.info(f"decrease semaphore to {state.event}")
 
 
+async def _cache_data(state: State) -> None:
+    dump = kodo.types.ProviderDump(
+        url=state.url,
+        organization=state.organization,
+        feed=state.registry,
+        nodes=state.nodes,
+        providers=state.providers
+    )
+    Path(state.cache).open("w").write(dump.model_dump_json(indent=2))
+    # pickle.dump({
+    #     "providers": state.providers,
+    #     "nodes": state.nodes
+    # }, Path(state.cache).open("wb"))
+
+    # with Path(state.cache).open("rb") as file:
+    #     data = pickle.load(file)
+    # return kodo.types.ProviderDump(
+    #     url=state.url,
+    #     organization=state.organization,
+    #     feed=state.registry,
+    #     nodes=data["nodes"],
+    #     providers=data["providers"]
+    # )
+
+
 # event listeners
 
 @listener("connect_node")
@@ -110,6 +136,7 @@ async def connect_node(url, state) -> None:
         status=state.status)
     await _connect(f"{url}/register", state, url, data=data.model_dump_json())
     _release(state)
+    logger.info(f"{state.url} node startup complete")
 
 
 @listener("connect_registry")
@@ -139,6 +166,9 @@ async def connect_registry(url, state) -> None:
                 created=created, modified=modified, heartbeat=modified,
                 **response["providers"])
     _release(state)
+    await _cache_data(state)
+    logger.info(f"{state.url} registry startup complete")
+
 
 
 @listener("update_node")
@@ -160,7 +190,9 @@ async def update_node(
         )
     await _connect(
         f"{url}/update/node", state, url, data=record.model_dump_json())
+    await _cache_data(state)
     _release(state)
+    logger.info(f"{state.url} update from node {url} completed")
 
 
 @listener("update_registry")
@@ -174,7 +206,9 @@ async def update_registry(
     """
     await _connect(
         f"{url}/update/registry", state, url, data=record.model_dump_json())
+    await _cache_data(state)
     _release(state)
+    logger.info(f"{state.url} update from registry {url} completed")
 
 
 # controller
@@ -300,8 +334,11 @@ class NodeConnector(Controller):
                 heartbeat=modified,
                 connect=True,
                 **data.model_dump())
+
             # save in own registry
             state.providers[data.url] = record
+            await _cache_data(state)
+
             masquerade = kodo.types.Provider(**record.model_dump())
             masquerade.url = state.url
             # inform connected registries
