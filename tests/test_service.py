@@ -2,19 +2,22 @@ import asyncio
 import datetime
 import multiprocessing
 import urllib
-
+import json
 import httpx
 import pandas as pd
 import pytest
+import traceback
 
 import kodo.service.node
 import kodo.types
 from kodo import helper
 from kodo.config import setting
-
+import kodo.worker.loader
+import kodo.worker.main
 
 def _create_service(
-        port, connect, node, registry, provider, explorer, loader, debug):
+        port, connect, node, registry, provider, explorer, loader, debug,
+        organization):
     kodo.service.node.run_service(
         url=f"http://localhost:{port}",
         connect=connect,
@@ -23,12 +26,33 @@ def _create_service(
         provider=provider,
         explorer=explorer,
         loader=loader,
+        organization=organization,
         reload=False,
         debug=debug)
-    print("OK")
 
 
 PORT = 3370
+
+class Process(multiprocessing.Process):
+    def __init__(self, *args, **kwargs):
+        multiprocessing.Process.__init__(self, *args, **kwargs)
+        self._pconn, self._cconn = multiprocessing.Pipe()
+        self._exception = None
+
+    def run(self):
+        try:
+            multiprocessing.Process.run(self)
+            self._cconn.send(None)
+        except Exception as e:
+            tb = traceback.format_exc()
+            self._cconn.send((e, tb))
+            raise
+
+    @property
+    def exception(self):
+        if self._pconn.poll():
+            self._exception = self._pconn.recv()
+        return self._exception
 
 
 class Controller:
@@ -54,11 +78,11 @@ class Controller:
             **kwargs)
 
     async def _start(self, node, registry, provider, explorer, loader=None,
-                     connect=None, debug=True, **kwargs):
+                     connect=None, debug=True, organization=None, **kwargs):
         port = self._port
         self._port += 1
 
-        proc = multiprocessing.Process(
+        proc = Process(
             target=_create_service,
             kwargs=dict(
                 port=port,
@@ -68,6 +92,7 @@ class Controller:
                 provider=provider,
                 explorer=explorer,
                 loader=loader,
+                organization=organization,
                 debug=debug
             )
         )
@@ -85,7 +110,9 @@ class Controller:
             except:
                 pass
             await backoff.wait()
-        raise RuntimeError("service did not start")
+        if proc.exception:
+            raise proc.exception[0].__class__(proc.exception[0].args)
+        raise RuntimeError(proc.exception)
 
     def close(self):
         while self.server:
@@ -241,11 +268,8 @@ async def test_connect_many(controller):
 
 
 def loader1():
-    return {
-        "flows": None,
-        "nodes": None,
-        "providers": None
-    }
+    loader = kodo.worker.loader.Loader()
+    return loader
 
 
 async def test_loader(controller):
@@ -258,50 +282,36 @@ async def test_loader(controller):
 async def test_no_loader(controller):
     registry1 = await controller.registry()
     await controller.get(registry1, "/", 200)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(AttributeError):
         node1 = await controller.node(loader="tests.test_service:loader_NF")
-
-
-def loader2():
-    return {
-        "flows": [
-            {"url": "/test1", "name": "Test 1"},
-            {"url": "/test2", "name": "Test 2"},
-            {"url": "/test3", "name": "Test 3"}
-        ],
-        "nodes": None,
-        "providers": None
-    }
 
 
 async def test_load_no_flows(controller):
     # registry and provider have no flows
-    with pytest.raises(RuntimeError):
-        registry = await controller.registry(loader="tests.test_service:loader2")
-    with pytest.raises(RuntimeError):
-        registry = await controller.provider(loader="tests.test_service:loader2")
+    with pytest.raises(ValueError):
+        registry = await controller.registry(loader="tests.test_service:loader3")
+    with pytest.raises(ValueError):
+        registry = await controller.provider(loader="tests.test_service:loader3")
+
+
+empty = None
 
 
 def loader3():
-    return {
-        "flows": [
-            {"url": "/test1", "name": "Test 1"},
-            {"url": "/test2", "name": "Test 2"},
-            {"url": "/test3", "name": "Test 3"}
-        ],
-        "nodes": None,
-        "providers": None
-    }
+    loader = kodo.worker.loader.Loader()
+    for i in range(1, 4):
+        loader.add_flow(
+            name=f"Test {i}", 
+            entry_point=f"tests.test_service:empty", 
+            url=f"/test{i}"
+        )
+    return loader
 
 
 async def test_flows_model():
-    flows = {f["name"]: kodo.types.Flow(**f) for f in loader3()["flows"]}
+    loader = loader3()
+    flows = loader.flows_dict()
     node = kodo.types.Node(url="http://hello", flows=flows)
-    print(node)
-    # flows = {f["name"]: kodo.types.Flow(**f) for f in loader3()["flows"]}
-    # offer = kodo.types.Node(url="http://hello", flows=flows)
-    # node = kodo.types.Node(**offer.dict(), created=helper.now(), modified=helper.now())
-    # print(node)
 
 
 async def test_load_node(controller):
@@ -316,26 +326,26 @@ async def test_load_node(controller):
 
 
 def loader4():
-    return {
-        "flows": [
-            {"url": "/test4", "name": "Test 4"},
-            {"url": "/test5", "name": "Test 5"},
-            {"url": "/test6", "name": "Test 6"}
-        ],
-        "nodes": None,
-        "providers": None
-    }
+    loader = kodo.worker.loader.Loader()
+    for i in range(4, 7):
+        loader.add_flow(
+            name=f"Test {i}", 
+            entry_point=f"tests.test_service:empty", 
+            url=f"/test{i}"
+        )
+    return loader
 
 
 async def test_node_register(controller):
-    registry1 = await controller.registry()
-    registry2 = await controller.registry()
-    node1 = await controller.node(
+    registry1 = await controller.registry()  # 3370
+    registry2 = await controller.registry()  # 3371
+    node1 = await controller.node(  # 3372
         connect=[registry1.base_url],
         loader="tests.test_service:loader3")
-    node2 = await controller.node(
+    node2 = await controller.node(  # 3373
         connect=[registry2.base_url],
         loader="tests.test_service:loader4")
+    # await controller.idle()
     js = await controller.get(registry1, "/", 200)
     assert js["connection"] == {}
     js = await controller.get(registry2, "/", 200)
@@ -352,84 +362,26 @@ async def test_node_register(controller):
     assert list(js["name"].values()) == ['Test 4', 'Test 5', 'Test 6']
 
 
-# def loader5():
-#     return {
-#         "flows": [{"url": f"/test{i}", "name": f"Test {i}"} for i in range(10)],
-#         "nodes": None,
-#         "providers": None
-#     }
-
-# @pytest.mark.skip
-# async def test_registry_connect(controller):
-#     registry1 = await controller.registry()
-#     node = await controller.node(
-#         connect=[registry1.base_url],
-#         loader="tests.test_service:loader5")
-#     registry2 = await controller.registry(connect=[registry1.base_url])
-#     js1 = await controller.get(registry1, "/flows", 200)
-#     assert len(pd.DataFrame(js1)) == 10
-#     assert list(pd.DataFrame(js1).source.unique()) == [registry1.base_url]
-#     js2 = await controller.get(registry2, "/flows", 200)
-#     assert len(pd.DataFrame(js2)) == 10
-#     assert list(pd.DataFrame(js2).source.unique()) == [registry2.base_url]
-
-
 def loader5():
-    return {
-        "flows": [
-            {"url": "/test7", "name": "Test 7"},
-            {"url": "/test8", "name": "Test 8"},
-            {"url": "/test9", "name": "Test 9"}
-        ],
-        "nodes": None,
-        "providers": None
-    }
-
-
-@pytest.mark.skip
-async def test_registry_connect2(controller):
-    # registry1 with 2 nodes
-    registry0 = await controller.registry()  # 3370
-    js = await controller.get(registry0, "/", 200)
-    node1 = await controller.node(  # 3371
-        connect=[registry0.base_url],
-        loader="tests.test_service:loader3")
-    js = await controller.get(node1, "/", 200)
-    node2 = await controller.node(  # 3372
-        connect=[registry0.base_url],
-        loader="tests.test_service:loader4")
-    js = await controller.get(node2, "/", 200)
-    js1 = await controller.get(registry0, "/flows", 200)
-    df1 = pd.DataFrame(js1)
-    assert sorted(list(df1.node.unique())) == sorted(
-        [str(node1.base_url), str(node2.base_url)])
-    # registry2 with 1 node
-    registry3 = await controller.registry(connect=[registry0.base_url])  # 3373
-    asyncio.sleep(1)
-    js = await controller.get(registry3, "/", 200)
-    node4 = await controller.node(  # 3374
-        connect=[registry3.base_url],
-        loader="tests.test_service:loader5")
-    js = await controller.get(node4, "/", 200)
-    js2 = await controller.get(registry3, "/flows", 200)
-    df2 = pd.DataFrame(js2)
-    assert sorted(list(df2.node.unique())) == sorted(
-        [str(node1.base_url), str(node2.base_url), str(node4.base_url)])
-    # registry3 without nodes
-    registry5 = await controller.registry(connect=[registry3.base_url])  # 3375
-    js = await controller.get(registry5, "/", 200)
-    js3 = await controller.get(registry5, "/flows", 200)
-    df3 = pd.DataFrame(js3)
-    assert sorted(list(df3.node.unique())) == sorted(
-        [str(node1.base_url), str(node2.base_url), str(node4.base_url)])
-    assert df1.drop(columns=["source"]).equals(df2.drop(columns=["source"]))
-    assert df2.drop(columns=["source"]).equals(df3.drop(columns=["source"]))
+    loader = kodo.worker.loader.Loader()
+    for i in range(7, 10):
+        loader.add_flow(
+            name=f"Test {i}", 
+            entry_point=f"tests.test_service:empty", 
+            url=f"/test{i}"
+        )
+    return loader
 
 
 async def test_post_update(controller):
     registry0 = await controller.registry()
-    provider = kodo.types.Provider(**{'url': 'http://localhost:3370', 'feed': True, 'nodes': {}, 'created': datetime.datetime(
-        2024, 12, 7, 23, 19, 25, 92078), 'modified': datetime.datetime(2024, 12, 7, 23, 28, 35, 430829)})
+    provider = kodo.types.Provider(**{
+        'url': 'http://localhost:3370', 
+        'feed': True, 
+        'nodes': {}, 
+        'created': datetime.datetime(2024, 12, 7, 23, 19, 25, 92078), 
+        'modified': datetime.datetime(2024, 12, 7, 23, 28, 35, 430829), 
+        'heartbeat': datetime.datetime(2024, 12, 7, 23, 28, 35, 430830)})
     client = httpx.AsyncClient()
     kwargs = {
         "data": provider.model_dump_json()
@@ -440,65 +392,14 @@ async def test_post_update(controller):
     print(response)
 
 
-@pytest.mark.skip
-async def test_registry_connect3(controller):
-    # registry1 with 2 nodes
-    # 3370
-    registry0 = await controller.registry(connect=["http://localhost:3371"])
-    js = await controller.get(registry0, "/", 200)
-    assert not js["idle"]
-    # 3371
-    registry1 = await controller.registry(connect=["http://localhost:3370"])
-    await controller.idle()
-
-
-@pytest.mark.skip
-async def test_registry_connect4(controller):
-    # registry1 with 2 nodes
-    registry0 = await controller.registry()  # 3370
-    js = await controller.get(registry0, "/", 200)
-    node01 = await controller.node(  # 3371
-        connect=[registry0.base_url],
-        loader="tests.test_service:loader3")
-    await controller.idle()
-    js = await controller.get(registry0, "/", 200)
-    assert js["idle"]
-    js0 = await controller.get(registry0, "/flows", 200)
-    js1 = await controller.get(node01, "/flows", 200)
-    df0 = pd.DataFrame(js0)
-    df1 = pd.DataFrame(js1)
-    cols = ["node", "name", "url"]
-    assert df0[cols].equals(df1[cols])
-
-    # registry1 connects to registry0 and synchronizes the flows
-    registry1 = await controller.registry(connect=[registry0.base_url])  # 3372
-    js = await controller.get(registry1, "/", 200)
-    await controller.idle()
-    js1 = await controller.get(registry1, "/flows", 200)
-    df1 = pd.DataFrame(js1)
-    assert df0[cols].equals(df1[cols])
-
-    # another node connects to registry0
-    node02 = await controller.node(  # 3371
-        connect=[registry0.base_url],
-        loader="tests.test_service:loader4")
-    await controller.idle()
-    js0 = await controller.get(registry0, "/flows", 200)
-    df0 = pd.DataFrame(js0)
-    js1 = await controller.get(registry1, "/flows", 200)
-    df1 = pd.DataFrame(js1)
-
-    print("OK")
-
-
 def one_flow():
-    return {
-        "flows": [
-            {"url": "/test1", "name": "Test 1"}
-        ],
-        "nodes": None,
-        "providers": None
-    }
+    loader = kodo.worker.loader.Loader()
+    loader.add_flow(
+        name=f"Test 1", 
+        entry_point=f"tests.test_service:empty", 
+        url=f"/test1"
+    )
+    return loader
 
 
 async def test_registry_scenario0(controller):
@@ -539,7 +440,6 @@ async def test_registry_scenario0(controller):
     for js in (flowsI, flowsJ, flowsK):
         assert pd.DataFrame(flowsH).drop(columns="source").equals(
             pd.DataFrame(js).drop(columns="source"))
-
 
 async def test_registry_scenario(controller):
     registryI = await controller.registry(
@@ -617,15 +517,14 @@ async def test_registry_scenario(controller):
 
 
 def loader6():
-    return {
-        "flows": [
-            {"url": "/test10", "name": "Test 10"},
-            {"url": "/test11", "name": "Test 11"},
-            {"url": "/test12", "name": "Test 12"}
-        ],
-        "nodes": None,
-        "providers": None
-    }
+    loader = kodo.worker.loader.Loader()
+    for i in range(10, 13):
+        loader.add_flow(
+            name=f"Test {i}", 
+            entry_point=f"tests.test_service:empty", 
+            url=f"/test{i}"
+        )
+    return loader
 
 
 async def test_registry_scenario2(controller):
@@ -661,3 +560,95 @@ async def test_registry_scenario2(controller):
     flowsH = await controller.get(registryH, "/flows", 200)
     cmp = pd.DataFrame(flowsH)[["node", "name", "url"]]
     cmp.reset_index(drop=True).equals(dfL.reset_index(drop=True))
+
+    df = pd.DataFrame(flowsI)
+    print(df)
+
+
+async def test_flow_visit(controller):
+    node = await controller.node(
+        connect=[],
+        loader="tests.test_service:loader3")
+    await controller.idle()
+    for i in range(1, 4):
+        resp = await controller.get(node, f"/flow/test{i}", 200)
+    resp = await controller.get(node, "/flow/test4", 404)
+
+# def random_flow(n: int=5):
+#     for i in range(n):
+#         loader.add_flow(
+#             name=f"Test {i}", 
+#             entry_point=f"tests.test_service:empty", 
+#             url=f"/test{i}"
+#         )
+#     return loader
+
+
+from tests.assets.agent50 import data as test_data
+
+def _load_prop(start, end):
+    worker = kodo.worker.loader.Loader()
+    for rec in test_data[start:end]:
+        rec["entry_point"] ="tests.test_service:empty"
+        worker.add_flow(**rec)
+    return worker
+
+
+def test_load_prop():
+    data1 = _load_prop(0, 8)
+    data2 = _load_prop(8, 20)
+    data3 = _load_prop(20, 32)
+    data4 = _load_prop(32, 39)
+    data5 = _load_prop(39, 50)
+
+def prop1():
+    return _load_prop(0, 8)
+
+def prop2():
+    return _load_prop(8, 20)
+
+def prop3():
+    return _load_prop(20, 32)
+
+def prop4():
+    return _load_prop(32, 39)
+
+def prop5():
+    return _load_prop(39, 50)
+    
+async def test_registry_props(controller):
+    registry1 = await controller.registry(organization="Serviceplan")
+    node1 = await controller.node(
+        connect=[registry1.base_url],
+        organization="Serviceplan",
+        loader="tests.test_service:prop1")
+    node2 = await controller.node(
+        connect=[registry1.base_url],
+        organization="Serviceplan HR",
+        loader="tests.test_service:prop2")
+    node3 = await controller.node(
+        connect=[registry1.base_url],
+        organization="Serviceplan PR",
+        loader="tests.test_service:prop3")
+    registry2 = await controller.registry(
+        organization="Mediaplus", connect=[registry1.base_url])
+    node4 = await controller.node(
+        connect=[registry2.base_url],
+        organization="Mediaplus",
+        loader="tests.test_service:prop4")
+    node5 = await controller.node(
+        connect=[registry2.base_url],
+        organization="MP Research",
+        loader="tests.test_service:prop5")
+    await controller.idle()
+    js1 = await controller.get(registry1, "/map", 200)
+    json.dump(js1, open("js1-map.json", "w"), indent=2)
+    js2 = await controller.get(registry2, "/map", 200)    
+    json.dump(js2, open("js2-map.json", "w"), indent=2)
+    js1 = await controller.get(registry1, "/flows", 200)
+    json.dump(js1, open("js1-flows.json", "w"), indent=2)
+    js2 = await controller.get(registry2, "/flows", 200)        
+    json.dump(js1, open("js2-flows.json", "w"), indent=2)
+    df1 = pd.DataFrame(js1)
+    df2 = pd.DataFrame(js1)    
+    assert df1.equals(df2)

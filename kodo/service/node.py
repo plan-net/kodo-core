@@ -9,9 +9,9 @@ from litestar.datastructures import State
 
 import kodo.helper
 import kodo.types
+import kodo.worker.loader
 from kodo.config import logger, setting
-from kodo.service.routes import NodeConnector
-from kodo.service.routes import connect_registry, connect_node
+from kodo.service.routes import NodeConnector, connect_registry, connect_node
 from kodo.service.routes import update_registry, update_node
 
 
@@ -20,11 +20,9 @@ DEFAULT_LOADER = "kodo.service.node:_default_loader"
 
 
 def _default_loader():
-    return {
-        "flows": None,
-        "nodes": None,
-        "providers": None
-    }
+    loader = kodo.worker.loader.Loader()
+    loader.reload()
+    return loader
 
 
 def _load_flows(flows: List[dict] | None) -> dict[str, kodo.types.Flow]:
@@ -49,12 +47,13 @@ def _load_providers_from_cache(
 def create_app(
     url: str | None = None,
     connect: Optional[List[str]] = None,
+    organization: Optional[str] = None,
     node: bool = True,
     registry: bool = True,
     provider: bool = False,
     explorer: bool = False,
     loader: str | None = DEFAULT_LOADER,
-        debug: bool = True) -> Litestar:
+    debug: bool = True) -> Litestar:
     """
     Factory method to instantiate the litestar application object and to load
     the environment, nodes, providers.
@@ -76,6 +75,8 @@ def create_app(
 
         # node url including port
         "URL": os.environ.get("iKODO_URL", url),
+        # node owner
+        "ORGANIZATION": os.environ.get("iKODO_ORGANIZATION", organization),
         "DEBUG": os.environ.get("iKODO_DEBUG", debug),
         # the list of target registriy URLs for this node, registry or provider
         "CONNECT": json.loads(
@@ -98,13 +99,14 @@ def create_app(
         # indicates if this node responds to /flows
         "EXPLORER": os.environ.get("iKODO_EXPLORER", explorer),
 
-        # the loader callback to load the initial .nodes and .providers
+        # the loader callback to load the initial .flows, .nodes and .providers
         "LOADER": os.environ.get("iKODO_LOADER", loader)
     }
 
     env = kodo.types.InternalEnviron(**data)  # type: ignore
     state = State({
         "url": env.URL,
+        "organization": env.ORGANIZATION,
         "node": env.NODE,
         "registry": env.REGISTRY,
         "provider": env.PROVIDER,
@@ -120,26 +122,30 @@ def create_app(
         "nodes": {},
         # provider registry records
         "providers": {},
+        # flow entry points (nodes only)
+        "entry_points": {},
         # semaphore for pending event processings
-        "event": 0
+        "event": 0,
+        "heartbeat": None,
+        "status": "unknown"
     })
-    # validate loader callback
+    # load flows, nodes, providers
     callback = kodo.helper.parse_factory(env.LOADER or DEFAULT_LOADER)
-    load = callback()
-    if not state.node and load["flows"]:
+    oload: kodo.worker.loader.Loader = callback()
+    if not state.node and oload.flows:
         raise ValueError("flows allowed for nodes only")
-    if not state.registry and (load["nodes"] or load["providers"]):
+    if not state.registry and (oload.nodes or oload.providers):
         raise ValueError(
             "nodes/providers allowed for registry/provider only")
-    if not state.registry and load["nodes"]:
+    if not state.registry and oload.nodes:
         raise ValueError("nodes allowed for registry/provider only")
     # load initial data from .cache
     if state.node:
-        state.flows = _load_flows(load["flows"])
+        state.flows = oload.flows_dict()
+        state.entry_points = oload.entry_points_dict()
     if state.registry or state.provider:
-        state.nodes = _load_nodes_from_cache(load["nodes"])
-        state.providers = _load_providers_from_cache(load["providers"])
-
+        state.nodes = oload.nodes_dict()
+        state.providers = oload.providers_dict()
     app = Litestar(
         route_handlers=[NodeConnector],
         on_startup=[NodeConnector.startup],
@@ -162,6 +168,7 @@ def create_app(
 
 def run_service(
         url: str = setting.SERVER,
+        organization: Optional[str] = None,
         connect: Optional[List[str]] = setting.REGISTRY,
         node: bool = True,
         registry: bool = True,
@@ -186,6 +193,7 @@ def run_service(
         connect = []
     env_settings = kodo.types.InternalEnviron(
         URL=url,
+        ORGANIZATION=organization,
         CONNECT=connect,
         NODE=node,
         REGISTRY=registry,

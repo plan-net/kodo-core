@@ -17,6 +17,7 @@ class Config(BaseSettings):
     SERVER: str = "http://localhost:3366"
     REQUEST_TIMEOUT: int = 30
     REGISTRY: List[str] | None = None
+    EXEC_DATA: str = "./data/exec"
 
     model_config = {
         "env_file": ".env",
@@ -30,6 +31,12 @@ class Config(BaseSettings):
         """Split the REGISTRY environment variable into a list."""
         if isinstance(v, str):
             return [s.strip() for s in v.split(',')]
+        return v
+
+
+    @field_validator("EXEC_DATA", mode="before")
+    def make_exec_data_dir(cls, v):
+        Path(v).mkdir(parents=True, exist_ok=True)
         return v
 
 

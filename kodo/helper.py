@@ -29,11 +29,15 @@ class Backoff:
         self.sleep = self.timer if self.sleep > 8 else self.sleep * 2
 
 
-def parse_factory(loader: str) -> Callable:
+def parse_factory(entry_point: str) -> Callable:
     """
     Split the loader string into module and callback and return the imported 
     callback. If no loader is provided, return the default loader.
     """
-    module, callback = loader.split(":", 1)
-    imported_module = __import__(module, fromlist=[callback])
-    return getattr(imported_module, callback)
+    module_name, obj = entry_point.split(":", 1)
+    #imported_module = __import__(module_name, fromlist=[callback])
+    module = __import__(module_name)
+    components = module_name.split('.')
+    for comp in components[1:]:
+        module = getattr(module, comp)
+    return getattr(module, obj)

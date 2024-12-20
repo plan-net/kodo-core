@@ -1,8 +1,9 @@
-import asyncio
 from typing import Optional
+from uuid import uuid4, UUID
 
 import httpx
 import pandas as pd
+
 from litestar import Litestar, Request, Response, get, post
 from litestar.datastructures import State
 from litestar.events import listener
@@ -25,7 +26,10 @@ def _build_provider(state: State) -> kodo.types.ProviderOffer:
                     continue
                 payload[node.url] = node
     return kodo.types.ProviderOffer(
-        url=state.url, feed=state.registry, nodes=payload)
+        url=state.url, 
+        organization=state.organization,
+        feed=state.registry, 
+        nodes=payload)
 
 
 def _default_response(state: State, *message: str) -> Response:
@@ -34,6 +38,7 @@ def _default_response(state: State, *message: str) -> Response:
             logger.info(f"client message: {m}")
     return Response(content={
         "url": state.url,
+        "organization": state.organization,
         "node": state.node,
         "registry": state.registry,
         "provider": state.provider,
@@ -84,6 +89,7 @@ def _emit(app, event, *args, **kwargs) -> None:
     app.emit(event, *args, **kwargs)
     logger.info(f"increase semaphore to {app.state.event}")
 
+
 def _release(state: State):
     state.event -= 1
     logger.info(f"decrease semaphore to {state.event}")
@@ -97,7 +103,11 @@ async def connect_node(url, state) -> None:
     Connects the node with the registry or provider. No response is expected.
     This event is triggered at node .startup().
     """
-    data = kodo.types.Node(url=state.url, flows=state.flows)
+    data = kodo.types.Node(
+        url=state.url, 
+        organization=state.organization, 
+        flows=state.flows,
+        status=state.status)
     await _connect(f"{url}/register", state, url, data=data.model_dump_json())
     _release(state)
 
@@ -126,12 +136,16 @@ async def connect_registry(url, state) -> None:
             if feedback.url == state.url:
                 raise RuntimeError("unexpected system behavior")
             state.providers[feedback.url] = kodo.types.Provider(
-                created=created, modified=modified, **response["providers"])
+                created=created, modified=modified, heartbeat=modified,
+                **response["providers"])
     _release(state)
 
 
 @listener("update_node")
-async def update_node(url: str, state: State, record: kodo.types.Node | kodo.types.ProviderOffer) -> None:
+async def update_node(
+    url: str, 
+    state: State, 
+    record: kodo.types.Node | kodo.types.ProviderOffer) -> None:
     """
     Forwards a node (reconnect) received with /register or a node update
     received from a provider and packaged in ProviderOffer to a connected 
@@ -140,6 +154,7 @@ async def update_node(url: str, state: State, record: kodo.types.Node | kodo.typ
     if isinstance(record, kodo.types.Node):
         record = kodo.types.ProviderOffer(
             url=state.url,
+            organization=state.organization,
             feed=False,  # no response expected at this stage
             nodes={record.url: record}
         )
@@ -149,7 +164,10 @@ async def update_node(url: str, state: State, record: kodo.types.Node | kodo.typ
 
 
 @listener("update_registry")
-async def update_registry(url: str, state: State, record: kodo.types.Provider) -> None:
+async def update_registry(
+    url: str, 
+    state: State, 
+    record: kodo.types.Provider) -> None:
     """
     Forwards a provider update received with /connect to all connected 
     providers.
@@ -199,14 +217,19 @@ class NodeConnector(Controller):
     async def home(self, request: Request, state: State) -> Response:
         return _default_response(state)
 
+    # providers only
+
     @get("/map")
     async def providers_map(self, state: State) -> kodo.types.ProviderDump:
         return kodo.types.ProviderDump(
             url=state.url,
+            organization=state.organization,
             feed=state.registry,
             nodes=state.nodes,
             providers=state.providers
         )
+
+    # nodes only
 
     @post("/register")
     async def register(
@@ -233,6 +256,7 @@ class NodeConnector(Controller):
                 data.created = data.modified
                 message.append(
                     f"registered node {data.url} (first visit)")
+            data.heartbeat = data.modified
             state.nodes[data.url] = kodo.types.Node(**data.model_dump())
             for provider in _get_peers(state):
                 if state.url == provider.url:
@@ -240,6 +264,8 @@ class NodeConnector(Controller):
                 _emit(request.app, "update_node", provider.url, state, data)
                 message.append(f"feed forward node to {provider.url}")
         return _default_response(state, *message)
+
+    # providers and registries only
 
     @post("/connect")
     async def connect(
@@ -269,7 +295,10 @@ class NodeConnector(Controller):
                 message.append(f"registry {data.url} connected (first visit)")
             # create Provider from ProviderOffer
             record = kodo.types.Provider(
-                created=created, modified=modified, connect=True,
+                created=created, 
+                modified=modified, 
+                heartbeat=modified,
+                connect=True,
                 **data.model_dump())
             # save in own registry
             state.providers[data.url] = record
@@ -282,8 +311,8 @@ class NodeConnector(Controller):
                     _emit(
                         request.app, "update_registry",
                         provider.url, state, masquerade)
-                    message.append(f"feed forward {
-                                   record.url} to {provider.url}")
+                    message.append(
+                        f"feed forward {record.url} to {provider.url}")
             if record.feed:
                 # client requests response (is a registry)
                 logger.info(f"{state.url} return is providers")
@@ -293,6 +322,8 @@ class NodeConnector(Controller):
                         "message": message
                     }, status_code=HTTP_200_OK)
         return _default_response(state, *message)
+
+    # all (nodes, providers, registries)
 
     @get("/flows")
     async def flows(self, state: State, dedup: bool = True) -> Response:
@@ -305,9 +336,13 @@ class NodeConnector(Controller):
             source = _build_provider(state)
         else:
             source = kodo.types.ProviderOffer(
-                url=state.url, feed=False, nodes={
+                url=state.url, 
+                feed=False, nodes={
                     state.url: kodo.types.Node(
-                        url=state.url, flows=state.flows)
+                        url=state.url, 
+                        organization=state.organization,
+                        flows=state.flows,
+                        status=state.status)
                 })
         rows = []
         for node in source.nodes.values():
@@ -317,20 +352,28 @@ class NodeConnector(Controller):
                     "node": node.url,
                     "created": node.created,
                     "modified": node.modified,
+                    "heartbeat": node.heartbeat,
                     "url": flow.url,
-                    "name": flow.name
+                    "name": flow.name,
+                    "author": flow.author,
+                    "description": flow.description,
+                    "tags": flow.tags
                 })
         df = pd.DataFrame(rows)
         if not df.empty:
-            df.sort_values(["source", "node", "url"], inplace=True)
+            #df.sort_values(["source", "node", "url"], inplace=True)
+            df.sort_values(["name", "node", "url"], inplace=True)
         logger.info(f"{state.url} retrieved {df.shape} flows")
         return Response(content=df.to_dict(), status_code=HTTP_200_OK)
 
+    # registries and providers
+
     @post("/update/node")
-    async def post_node(self,
-                        state: State,
-                        request: Request,
-                        data: Optional[kodo.types.ProviderOffer] = None) -> Response:
+    async def post_node(
+        self,
+        state: State,
+        request: Request,
+        data: Optional[kodo.types.ProviderOffer] = None) -> Response:
         """
         update node data from provider
         """
@@ -369,7 +412,10 @@ class NodeConnector(Controller):
         return _default_response(state, *message)
 
     @post("/update/registry")
-    async def post_registry(self, state: State, data: Optional[kodo.types.Provider] = None) -> Response:
+    async def post_registry(
+        self, 
+        state: State, 
+        data: Optional[kodo.types.Provider] = None) -> Response:
         """
         update registry data from provider
         """
@@ -387,3 +433,37 @@ class NodeConnector(Controller):
                 message.append(f"updated provider {data.url}")
             state.providers[data.url] = data
         return _default_response(state, *message)
+
+    @get("/flow/{path:path}")
+    async def visit_flow(self, path: str, state: State) -> Response:
+        if state.registry:
+            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
+        if path in state.entry_points:
+            # todo: call flow's method decorated with @welcome
+            entry = state.entry_points[path]
+            return Response(content={"entry_point": entry}, status_code=HTTP_200_OK)
+        return Response(content={}, status_code=HTTP_404_NOT_FOUND)
+
+    @post("/flow/create/{path:path}")
+    async def create_flow_execution(self, path: str, state: State) -> Response:
+        if state.registry:
+            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
+        entry = state.entry_points.get(path)
+        # todo: call flow's method decorated with @entry
+        #       detach from parent process
+        #       return fid
+        # todo: persist the flow with fid
+        fid = uuid4()
+        return Response(content={
+            "entry_point": entry,
+            "fid": fid
+        }, status_code=HTTP_200_OK)
+        # raise Forbidden if prerequisites fail
+
+    @post("/flow/launch/{fid:uuid}")
+    async def launch_flow(self, fid: UUID, state: State) -> Response:
+        if state.registry:
+            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
+        # todo: load flow from fid
+        return Response(content={"fid": fid}, status_code=HTTP_200_OK)
+        # raise Forbidden if prerequisites fail
