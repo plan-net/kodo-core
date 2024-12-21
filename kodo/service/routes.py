@@ -522,7 +522,7 @@ class NodeConnector(Controller):
             sort_order = [True] * 3
             sort_by = []
         if q:
-            sdf = df.query(q)
+            sdf = df.query(q).copy()
             query = q
         else:
             query = None

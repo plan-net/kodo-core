@@ -1,3 +1,4 @@
+from tests.assets.agent50 import data as test_data
 import asyncio
 import datetime
 import multiprocessing
@@ -37,6 +38,7 @@ def _create_service(
 
 
 PORT = 3370
+
 
 class Process(multiprocessing.Process):
     def __init__(self, *args, **kwargs):
@@ -274,7 +276,7 @@ async def test_connect_many(controller):
         assert ts1 is not None and ts2 is not None
 
 
-def loader1(state: State=None) -> kodo.worker.loader.Loader:
+def loader1(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     return loader
 
@@ -308,8 +310,8 @@ def loader3(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(1, 4):
         loader.add_flow(
-            name=f"Test {i}", 
-            entry_point=f"tests.test_service:empty", 
+            name=f"Test {i}",
+            entry_point=f"tests.test_service:empty",
             url=f"/test{i}"
         )
     return loader
@@ -336,8 +338,8 @@ def loader4(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(4, 7):
         loader.add_flow(
-            name=f"Test {i}", 
-            entry_point=f"tests.test_service:empty", 
+            name=f"Test {i}",
+            entry_point=f"tests.test_service:empty",
             url=f"/test{i}"
         )
     return loader
@@ -373,8 +375,8 @@ def loader5(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(7, 10):
         loader.add_flow(
-            name=f"Test {i}", 
-            entry_point=f"tests.test_service:empty", 
+            name=f"Test {i}",
+            entry_point=f"tests.test_service:empty",
             url=f"/test{i}"
         )
     return loader
@@ -383,11 +385,11 @@ def loader5(*args, **kwargs) -> kodo.worker.loader.Loader:
 async def test_post_update(controller):
     registry0 = await controller.registry()
     provider = kodo.types.Provider(**{
-        'url': 'http://localhost:3370', 
-        'feed': True, 
-        'nodes': {}, 
-        'created': datetime.datetime(2024, 12, 7, 23, 19, 25, 92078), 
-        'modified': datetime.datetime(2024, 12, 7, 23, 28, 35, 430829), 
+        'url': 'http://localhost:3370',
+        'feed': True,
+        'nodes': {},
+        'created': datetime.datetime(2024, 12, 7, 23, 19, 25, 92078),
+        'modified': datetime.datetime(2024, 12, 7, 23, 28, 35, 430829),
         'heartbeat': datetime.datetime(2024, 12, 7, 23, 28, 35, 430830)})
     client = httpx.AsyncClient()
     kwargs = {
@@ -402,8 +404,8 @@ async def test_post_update(controller):
 def one_flow(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     loader.add_flow(
-        name=f"Test 1", 
-        entry_point=f"tests.test_service:empty", 
+        name=f"Test 1",
+        entry_point=f"tests.test_service:empty",
         url=f"/test1"
     )
     return loader
@@ -439,14 +441,19 @@ async def test_registry_scenario0(controller):
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
 
-    assert pd.DataFrame(flowsH["items"]).registry_url.tolist() == [str(registryH.base_url)]
-    assert pd.DataFrame(flowsI["items"]).registry_url.tolist() == [str(registryI.base_url)]
-    assert pd.DataFrame(flowsJ["items"]).registry_url.tolist() == [str(registryJ.base_url)]
-    assert pd.DataFrame(flowsK["items"]).registry_url.tolist() == [str(registryK.base_url)]
+    assert pd.DataFrame(flowsH["items"]).registry_url.tolist() == [
+        str(registryH.base_url)]
+    assert pd.DataFrame(flowsI["items"]).registry_url.tolist() == [
+        str(registryI.base_url)]
+    assert pd.DataFrame(flowsJ["items"]).registry_url.tolist() == [
+        str(registryJ.base_url)]
+    assert pd.DataFrame(flowsK["items"]).registry_url.tolist() == [
+        str(registryK.base_url)]
 
     for js in (flowsI["items"], flowsJ["items"], flowsK["items"]):
         assert pd.DataFrame(flowsH["items"]).drop(columns="registry_url").equals(
             pd.DataFrame(js).drop(columns="registry_url"))
+
 
 async def test_registry_scenario(controller):
     registryI = await controller.registry(
@@ -479,10 +486,14 @@ async def test_registry_scenario(controller):
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
 
-    assert pd.DataFrame(flowsH["items"]).registry_url.tolist() == [str(registryH.base_url)]
-    assert pd.DataFrame(flowsI["items"]).registry_url.tolist() == [str(registryI.base_url)]
-    assert pd.DataFrame(flowsJ["items"]).registry_url.tolist() == [str(registryJ.base_url)]
-    assert pd.DataFrame(flowsK["items"]).registry_url.tolist() == [str(registryK.base_url)]
+    assert pd.DataFrame(flowsH["items"]).registry_url.tolist() == [
+        str(registryH.base_url)]
+    assert pd.DataFrame(flowsI["items"]).registry_url.tolist() == [
+        str(registryI.base_url)]
+    assert pd.DataFrame(flowsJ["items"]).registry_url.tolist() == [
+        str(registryJ.base_url)]
+    assert pd.DataFrame(flowsK["items"]).registry_url.tolist() == [
+        str(registryK.base_url)]
 
     for js in (flowsI["items"], flowsJ["items"], flowsK["items"]):
         assert pd.DataFrame(flowsH["items"]).drop(columns="registry_url").equals(
@@ -527,8 +538,8 @@ def loader6(*args, **kwargs) -> kodo.worker.loader.Loader:
     loader = kodo.worker.loader.Loader()
     for i in range(10, 13):
         loader.add_flow(
-            name=f"Test {i}", 
-            entry_point=f"tests.test_service:empty", 
+            name=f"Test {i}",
+            entry_point=f"tests.test_service:empty",
             url=f"/test{i}"
         )
     return loader
@@ -587,19 +598,17 @@ async def test_flow_visit(controller):
 # def random_flow(n: int=5):
 #     for i in range(n):
 #         loader.add_flow(
-#             name=f"Test {i}", 
-#             entry_point=f"tests.test_service:empty", 
+#             name=f"Test {i}",
+#             entry_point=f"tests.test_service:empty",
 #             url=f"/test{i}"
 #         )
 #     return loader
 
 
-from tests.assets.agent50 import data as test_data
-
 def _load_prop(start, end):
     worker = kodo.worker.loader.Loader()
     for rec in test_data[start:end]:
-        rec["entry_point"] ="tests.test_service:empty"
+        rec["entry_point"] = "tests.test_service:empty"
         worker.add_flow(**rec)
     return worker
 
@@ -659,15 +668,15 @@ async def test_registry_props(controller):
     await controller.idle()
     js1 = await controller.get(registry1, "/map", 200)
     # json.dump(js1, open("js1-map.json", "w"), indent=2)
-    js2 = await controller.get(registry2, "/map", 200)    
+    js2 = await controller.get(registry2, "/map", 200)
     # json.dump(js2, open("js2-map.json", "w"), indent=2)
     js1 = await controller.get(registry1, "/flows", 200)
     # json.dump(js1, open("js1-flows.json", "w"), indent=2)
-    js2 = await controller.get(registry2, "/flows", 200)        
+    js2 = await controller.get(registry2, "/flows", 200)
     # json.dump(js1, open("js2-flows.json", "w"), indent=2)
     df1 = pd.DataFrame(js1["items"])
-    df2 = pd.DataFrame(js2["items"])    
-    cols = ["node_url", "name", "url", "author", "description", "tags", 
+    df2 = pd.DataFrame(js2["items"])
+    cols = ["node_url", "name", "url", "author", "description", "tags",
             "created", "modified", "heartbeat"]
     assert df1[cols].reset_index(drop=True).equals(
         df2[cols].reset_index(drop=True))
@@ -678,7 +687,7 @@ async def test_registry_cache(controller, tmp_path):
     registry1 = await test_registry_props(controller)
     registry3 = await controller.registry(
         organization="Plan.Net Journey", connect=[registry1.base_url])
-    js3 = await controller.get(registry3, "/map", 200)        
+    js3 = await controller.get(registry3, "/map", 200)
     # json.dump(js3, open("js3-maps.json", "w"), indent=2)
     js3 = await controller.get(registry3, "/flows", 200)
     df3 = pd.DataFrame(js3["items"])
@@ -688,7 +697,7 @@ async def test_registry_cache(controller, tmp_path):
         df3.drop(columns=["registry_url"]).reset_index(drop=True))
     # hack to cache file:
     cache = (
-        controller.tmp_path 
+        controller.tmp_path
         / f"port_{str(registry3.base_url).split(":")[2]}.pkl")
     registry4 = await controller.registry(
         organization="Plan.Net Journey", connect=[registry1.base_url],
@@ -696,8 +705,38 @@ async def test_registry_cache(controller, tmp_path):
     js4 = await controller.get(registry4, "/flows", 200)
     df4 = pd.DataFrame(js4["items"])
     df4.drop(columns=["registry_url"]).reset_index(drop=True).equals(
-        df1.drop(columns=["registry_url"]).reset_index(drop=True))   
+        df1.drop(columns=["registry_url"]).reset_index(drop=True))
     data = kodo.types.ProviderDump.model_validate_json(
         Path(cache).open("r").read())
     Path(f"{setting.CACHE_DATA}.test").open("w").write(
         data.model_dump_json(indent=2))
+    return registry4
+
+
+async def test_flow_pager(controller):
+    registry4 = await test_registry_props(controller)
+    p0 = await controller.get(registry4, "/flows?pp=15&p=0", 200)
+    p1 = await controller.get(registry4, "/flows?pp=15&p=1", 200)
+    p2 = await controller.get(registry4, "/flows?pp=15&p=2", 200)
+    p3 = await controller.get(registry4, "/flows?pp=15&p=3", 200)
+    p4 = await controller.get(registry4, "/flows?pp=15&p=4", 200)
+    df0 = pd.DataFrame(p0["items"])
+    df1 = pd.DataFrame(p1["items"])
+    df2 = pd.DataFrame(p2["items"])
+    df3 = pd.DataFrame(p3["items"])
+    df4 = pd.DataFrame(p4["items"])
+    assert df0.shape[0] == 15
+    assert df1.shape[0] == 15
+    assert df2.shape[0] == 15
+    assert df3.shape[0] == 5
+    assert df4.shape[0] == 0
+    names = pd.concat([df0, df1, df2, df3, df4]).name.tolist()
+    assert names == sorted([i["name"] for i in test_data])
+    p = await controller.get(registry4, "/flows?pp=15&p=0&q=node_organization=='Mediaplus'", 200)
+    df = pd.DataFrame(p["items"])    
+    assert df.node_organization.unique().tolist() == ["Mediaplus"]
+    assert df.shape[0] == 7
+    p = await controller.get(registry4, "/flows?pp=15&p=0&q=node_organization=='Mediaplus'&by=author,name:d", 200)
+    df = pd.DataFrame(p["items"])    
+    assert ['Agent Hades', 'Agent Demeter', 'Agent Zeus', 'Agent Hestia', 
+            'Agent Hephaestus', 'Agent Poseidon', 'Agent Dionysus'] == df.name.tolist()
