@@ -104,21 +104,6 @@ async def _cache_data(state: State) -> None:
         providers=state.providers
     )
     Path(state.cache).open("w").write(dump.model_dump_json(indent=2))
-    # pickle.dump({
-    #     "providers": state.providers,
-    #     "nodes": state.nodes
-    # }, Path(state.cache).open("wb"))
-
-    # with Path(state.cache).open("rb") as file:
-    #     data = pickle.load(file)
-    # return kodo.types.ProviderDump(
-    #     url=state.url,
-    #     organization=state.organization,
-    #     feed=state.registry,
-    #     nodes=data["nodes"],
-    #     providers=data["providers"]
-    # )
-
 
 # event listeners
 
@@ -209,9 +194,7 @@ async def update_registry(
     _release(state)
     logger.info(f"{state.url} update from registry {url} completed")
 
-
 # controller
-
 class NodeConnector(Controller):
     path = "/"
 
@@ -461,7 +444,6 @@ class NodeConnector(Controller):
             return Response(content={}, status_code=HTTP_404_NOT_FOUND)
         # todo: load flow from fid
         return Response(content={"fid": fid}, status_code=HTTP_200_OK)
-        # raise Forbidden if prerequisites fail
 
     # all (nodes, providers, registries)
 

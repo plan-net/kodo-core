@@ -38,12 +38,7 @@ class Flow(BaseModel):
     author: Optional[str] = "missing author"
 
 
-class FlowRecord(BaseModel):
-    url: str
-    name: str
-    description: str
-    tags: List[str]
-    author: str
+class FlowRecord(Flow):
     registry_url: str
     node_url: str
     created: datetime.datetime
@@ -51,9 +46,11 @@ class FlowRecord(BaseModel):
     heartbeat: datetime.datetime
 
 
-class Node(BaseModel):
+class NodeBase(BaseModel):
     url: str
     organization: Optional[str] = "unknown organization"
+
+class Node(NodeBase):
     flows: Dict[str, Flow]
     created: Optional[datetime.datetime] = None
     modified: Optional[datetime.datetime] = None
@@ -61,30 +58,19 @@ class Node(BaseModel):
     status: str = "unknown"
 
 
-class ProviderOffer(BaseModel):
-    url: str
-    organization: Optional[str] = "unknown organization"
+class ProviderOffer(NodeBase):
     feed: bool
     nodes: Dict[str, Node]
 
 
-class Provider(BaseModel):
-    url: str
-    organization: Optional[str] = "unknown organization"
-    # True, if the provider wants feedback on nodes and providers (is a registry)
-    feed: bool
-    nodes: Dict[str, Node]
+class Provider(ProviderOffer):
     created: datetime.datetime
     modified: datetime.datetime
     connect: Optional[bool] = False
     heartbeat: datetime.datetime
 
 
-class ProviderDump(BaseModel):
-    url: str
-    organization: Optional[str] = "unknown organization"
-    feed: bool
-    nodes: Dict[str, Node]
+class ProviderDump(ProviderOffer):
     providers: Dict[str, Provider]
 
 

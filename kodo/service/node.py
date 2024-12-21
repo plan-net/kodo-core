@@ -1,8 +1,8 @@
 import json
 import os
 import urllib
-from typing import Optional, List
 from pathlib import Path
+from typing import Optional, List
 
 import uvicorn
 from litestar import Litestar
@@ -12,8 +12,7 @@ import kodo.helper
 import kodo.types
 import kodo.worker.loader
 from kodo.config import logger, setting
-from kodo.service.routes import NodeConnector, connect_registry, connect_node
-from kodo.service.routes import update_registry, update_node
+from kodo.service.routes import NodeConnector, connect_registry, connect_node, update_registry, update_node
 
 
 # providers, nodes and flows are empty
