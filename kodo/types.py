@@ -44,10 +44,11 @@ class FlowRecord(BaseModel):
     description: str
     tags: List[str]
     author: str
-    source: str
-    node: str
+    registry_url: str
+    node_url: str
     created: datetime.datetime
     modified: datetime.datetime
+    heartbeat: datetime.datetime
 
 
 class Node(BaseModel):
@@ -85,3 +86,5 @@ class ProviderDump(BaseModel):
     feed: bool
     nodes: Dict[str, Node]
     providers: Dict[str, Provider]
+
+

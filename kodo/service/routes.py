@@ -1,10 +1,9 @@
+from pathlib import Path
 from typing import Optional
 from uuid import uuid4, UUID
-import pickle
+
 import httpx
 import pandas as pd
-from pathlib import Path
-
 from litestar import Litestar, Request, Response, get, post
 from litestar.datastructures import State
 from litestar.events import listener
@@ -360,48 +359,7 @@ class NodeConnector(Controller):
                     }, status_code=HTTP_200_OK)
         return _default_response(state, *message)
 
-    # all (nodes, providers, registries)
 
-    @get("/flows")
-    async def flows(self, state: State, dedup: bool = True) -> Response:
-        """
-        Return all flows from the nodes and providers masquerading the
-        sourcing registry. Returns a pandas DataFrame.
-        """
-        source = None
-        if state.registry:
-            source = _build_provider(state)
-        else:
-            source = kodo.types.ProviderOffer(
-                url=state.url, 
-                feed=False, nodes={
-                    state.url: kodo.types.Node(
-                        url=state.url, 
-                        organization=state.organization,
-                        flows=state.flows,
-                        status=state.status)
-                })
-        rows = []
-        for node in source.nodes.values():
-            for url, flow in node.flows.items():
-                rows.append({
-                    "source": state.url,
-                    "node": node.url,
-                    "created": node.created,
-                    "modified": node.modified,
-                    "heartbeat": node.heartbeat,
-                    "url": flow.url,
-                    "name": flow.name,
-                    "author": flow.author,
-                    "description": flow.description,
-                    "tags": flow.tags
-                })
-        df = pd.DataFrame(rows)
-        if not df.empty:
-            #df.sort_values(["source", "node", "url"], inplace=True)
-            df.sort_values(["name", "node", "url"], inplace=True)
-        logger.info(f"{state.url} retrieved {df.shape} flows")
-        return Response(content=df.to_dict(), status_code=HTTP_200_OK)
 
     # registries and providers
 
@@ -504,3 +462,82 @@ class NodeConnector(Controller):
         # todo: load flow from fid
         return Response(content={"fid": fid}, status_code=HTTP_200_OK)
         # raise Forbidden if prerequisites fail
+
+    # all (nodes, providers, registries)
+
+    @get("/flows")
+    async def flows(
+            self, 
+            state: State, 
+            request: Request,
+            q: Optional[str]=None,
+            by: Optional[str]=None,
+            pp: int=10, 
+            p: int=0,
+            dedup: bool = True) -> Response:
+        """
+        Return all flows from the nodes and providers masquerading the
+        sourcing registry. Returns a pandas DataFrame.
+        """
+        source = None
+        if state.registry:
+            source = _build_provider(state)
+        else:
+            source = kodo.types.ProviderOffer(
+                url=state.url, 
+                feed=False, nodes={
+                    state.url: kodo.types.Node(
+                        url=state.url, 
+                        organization=state.organization,
+                        flows=state.flows,
+                        status=state.status)})
+        rows = []
+        for node in source.nodes.values():
+            for url, flow in node.flows.items():
+                rows.append({
+                    "registry_url": state.url,
+                    "node_url": node.url,
+                    "node_organization": node.organization,
+                    "created": node.created,
+                    "modified": node.modified,
+                    "heartbeat": node.heartbeat,
+                    "url": flow.url,
+                    "name": flow.name,
+                    "author": flow.author or "missing author",
+                    "description": flow.description or "missing description",
+                    "tags": flow.tags or []
+                })
+        # build dataframe for query
+        df = pd.DataFrame(rows)
+        if by:
+            sort_by = [s.strip().lower() for s in by.split(",")]
+            sort_values = [s.split(":")[0] for s in sort_by]
+            sort_order = [
+                "ascending".startswith(s.split(":")[-1].lower()) 
+                if ":" in s else True 
+                for s in sort_by
+            ]
+        else:
+            sort_values = ["name", "node_url", "url"]
+            sort_order = [True] * 3
+            sort_by = []
+        if q:
+            sdf = df.query(q)
+            query = q
+        else:
+            query = None
+            sdf = df
+        sdf.sort_values(by=sort_values, ascending=sort_order, inplace=True)
+        sdf = sdf.iloc[p * pp : (p + 1) * pp]
+        sdf.reset_index(drop=True, inplace=True)
+        if "text/html" in request.headers.get("accept", ""):
+            return Response(content=sdf.to_html(), media_type="text/html")
+        return Response(content={
+            "total": df.shape[0],
+            "filtered": sdf.shape[0],
+            "p": p,
+            "pp": pp,
+            "items": sdf.to_dict('records'),
+            "by": ", ".join(sort_by),
+            "q": query
+        })

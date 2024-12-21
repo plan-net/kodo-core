@@ -364,9 +364,9 @@ async def test_node_register(controller):
     assert js["connection"].get(registry1.base_url, None) is None
     assert js["connection"].get(registry2.base_url, None) is not None
     js = await controller.get(registry1, "/flows", 200)
-    assert list(js["name"].values()) == ['Test 1', 'Test 2', 'Test 3']
+    assert [f["name"] for f in js["items"]] == ['Test 1', 'Test 2', 'Test 3']
     js = await controller.get(registry2, "/flows", 200)
-    assert list(js["name"].values()) == ['Test 4', 'Test 5', 'Test 6']
+    assert [f["name"] for f in js["items"]] == ['Test 4', 'Test 5', 'Test 6']
 
 
 def loader5(*args, **kwargs) -> kodo.worker.loader.Loader:
@@ -439,14 +439,14 @@ async def test_registry_scenario0(controller):
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
 
-    assert pd.DataFrame(flowsH).source.tolist() == [str(registryH.base_url)]
-    assert pd.DataFrame(flowsI).source.tolist() == [str(registryI.base_url)]
-    assert pd.DataFrame(flowsJ).source.tolist() == [str(registryJ.base_url)]
-    assert pd.DataFrame(flowsK).source.tolist() == [str(registryK.base_url)]
+    assert pd.DataFrame(flowsH["items"]).registry_url.tolist() == [str(registryH.base_url)]
+    assert pd.DataFrame(flowsI["items"]).registry_url.tolist() == [str(registryI.base_url)]
+    assert pd.DataFrame(flowsJ["items"]).registry_url.tolist() == [str(registryJ.base_url)]
+    assert pd.DataFrame(flowsK["items"]).registry_url.tolist() == [str(registryK.base_url)]
 
-    for js in (flowsI, flowsJ, flowsK):
-        assert pd.DataFrame(flowsH).drop(columns="source").equals(
-            pd.DataFrame(js).drop(columns="source"))
+    for js in (flowsI["items"], flowsJ["items"], flowsK["items"]):
+        assert pd.DataFrame(flowsH["items"]).drop(columns="registry_url").equals(
+            pd.DataFrame(js).drop(columns="registry_url"))
 
 async def test_registry_scenario(controller):
     registryI = await controller.registry(
@@ -479,14 +479,14 @@ async def test_registry_scenario(controller):
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
 
-    assert pd.DataFrame(flowsH).source.tolist() == [str(registryH.base_url)]
-    assert pd.DataFrame(flowsI).source.tolist() == [str(registryI.base_url)]
-    assert pd.DataFrame(flowsJ).source.tolist() == [str(registryJ.base_url)]
-    assert pd.DataFrame(flowsK).source.tolist() == [str(registryK.base_url)]
+    assert pd.DataFrame(flowsH["items"]).registry_url.tolist() == [str(registryH.base_url)]
+    assert pd.DataFrame(flowsI["items"]).registry_url.tolist() == [str(registryI.base_url)]
+    assert pd.DataFrame(flowsJ["items"]).registry_url.tolist() == [str(registryJ.base_url)]
+    assert pd.DataFrame(flowsK["items"]).registry_url.tolist() == [str(registryK.base_url)]
 
-    for js in (flowsI, flowsJ, flowsK):
-        assert pd.DataFrame(flowsH).drop(columns="source").equals(
-            pd.DataFrame(js).drop(columns="source"))
+    for js in (flowsI["items"], flowsJ["items"], flowsK["items"]):
+        assert pd.DataFrame(flowsH["items"]).drop(columns="registry_url").equals(
+            pd.DataFrame(js).drop(columns="registry_url"))
 
     nodeI02 = await controller.node(
         connect=[registryI.base_url],
@@ -498,9 +498,9 @@ async def test_registry_scenario(controller):
     flowsI = await controller.get(registryI, "/flows", 200)
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
-    for js in (flowsI, flowsJ, flowsK):
-        assert pd.DataFrame(flowsH).drop(columns="source").equals(
-            pd.DataFrame(js).drop(columns="source"))
+    for js in (flowsI["items"], flowsJ["items"], flowsK["items"]):
+        assert pd.DataFrame(flowsH["items"]).drop(columns="registry_url").equals(
+            pd.DataFrame(js).drop(columns="registry_url"))
 
     nodeHI = await controller.node(
         connect=[registryJ.base_url, registryK.base_url],
@@ -512,14 +512,14 @@ async def test_registry_scenario(controller):
     flowsI = await controller.get(registryI, "/flows", 200)
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
-    pd.DataFrame(flowsK).drop(columns="source").sort_values(["node"]).equals(
-        pd.DataFrame(flowsK).drop(columns="source").sort_values(["node"]))
+    pd.DataFrame(flowsK["items"]).drop(columns="registry_url").sort_values(["node_url"]).equals(
+        pd.DataFrame(flowsK["items"]).drop(columns="registry_url").sort_values(["node_url"]))
 
-    cmp = pd.DataFrame(flowsH)[["node", "name", "url"]]
-    cmp.sort_values(["node"], inplace=True)
-    for js in (flowsI, flowsJ, flowsK):
-        df = pd.DataFrame(js)[["node", "name", "url"]]
-        df.sort_values(["node"], inplace=True)
+    cmp = pd.DataFrame(flowsH["items"])[["node_url", "name", "url"]]
+    cmp.sort_values(["node_url"], inplace=True)
+    for js in (flowsI["items"], flowsJ["items"], flowsK["items"]):
+        df = pd.DataFrame(js)[["node_url", "name", "url"]]
+        df.sort_values(["node_url"], inplace=True)
         assert cmp.equals(df)
 
 
@@ -543,13 +543,17 @@ async def test_registry_scenario2(controller):
     flowsI = await controller.get(registryI, "/flows", 200)
     flowsJ = await controller.get(registryJ, "/flows", 200)
     flowsK = await controller.get(registryK, "/flows", 200)
-    pd.DataFrame(flowsK).drop(columns="source").sort_values(["node"]).equals(
-        pd.DataFrame(flowsK).drop(columns="source").sort_values(["node"]))
-    cmp = pd.DataFrame(flowsH)[["node", "name", "url"]]
-    cmp.sort_values(["node"], inplace=True)
+    flowsH = flowsH["items"]
+    flowsI = flowsI["items"]
+    flowsJ = flowsJ["items"]
+    flowsK = flowsK["items"]
+    pd.DataFrame(flowsK).drop(columns="registry_url").sort_values(["node_url"]).equals(
+        pd.DataFrame(flowsK).drop(columns="registry_url").sort_values(["node_url"]))
+    cmp = pd.DataFrame(flowsH)[["node_url", "name", "url"]]
+    cmp.sort_values(["node_url"], inplace=True)
     for js in (flowsI, flowsJ, flowsK):
-        df = pd.DataFrame(js)[["node", "name", "url"]]
-        df.sort_values(["node"], inplace=True)
+        df = pd.DataFrame(js)[["node_url", "name", "url"]]
+        df.sort_values(["node_url"], inplace=True)
         assert cmp.equals(df)
     registryL = await controller.registry(
         # , "http://localhost:3373"]) # 3370
@@ -560,16 +564,15 @@ async def test_registry_scenario2(controller):
     await controller.idle()
 
     flowsL = await controller.get(registryL, "/flows", 200)
-    dfL = pd.DataFrame(flowsL).sort_values(["node"])
-    dfL = dfL[["node", "name", "url"]]
-    dfL.sort_values(["node"], inplace=True)
+    flowsL = flowsL["items"]
+    dfL = pd.DataFrame(flowsL).sort_values(["node_url"])
+    dfL = dfL[["node_url", "name", "url"]]
+    dfL.sort_values(["node_url"], inplace=True)
 
     flowsH = await controller.get(registryH, "/flows", 200)
-    cmp = pd.DataFrame(flowsH)[["node", "name", "url"]]
+    flowsH = flowsH["items"]
+    cmp = pd.DataFrame(flowsH)[["node_url", "name", "url"]]
     cmp.reset_index(drop=True).equals(dfL.reset_index(drop=True))
-
-    df = pd.DataFrame(flowsI)
-    print(df)
 
 
 async def test_flow_visit(controller):
@@ -662,10 +665,10 @@ async def test_registry_props(controller):
     # json.dump(js1, open("js1-flows.json", "w"), indent=2)
     js2 = await controller.get(registry2, "/flows", 200)        
     # json.dump(js1, open("js2-flows.json", "w"), indent=2)
-    df1 = pd.DataFrame(js1)
-    df2 = pd.DataFrame(js2)    
-    cols = ["node", "name", "url", "author", "description", "tags", "created", 
-            "modified", "heartbeat"]
+    df1 = pd.DataFrame(js1["items"])
+    df2 = pd.DataFrame(js2["items"])    
+    cols = ["node_url", "name", "url", "author", "description", "tags", 
+            "created", "modified", "heartbeat"]
     assert df1[cols].reset_index(drop=True).equals(
         df2[cols].reset_index(drop=True))
     return registry1
@@ -677,10 +680,12 @@ async def test_registry_cache(controller, tmp_path):
         organization="Plan.Net Journey", connect=[registry1.base_url])
     js3 = await controller.get(registry3, "/map", 200)        
     # json.dump(js3, open("js3-maps.json", "w"), indent=2)
-    df3 = pd.DataFrame(await controller.get(registry3, "/flows", 200))
-    df1 = pd.DataFrame(await controller.get(registry1, "/flows", 200))
-    assert df1.drop(columns=["source"]).reset_index(drop=True).equals(
-        df3.drop(columns=["source"]).reset_index(drop=True))
+    js3 = await controller.get(registry3, "/flows", 200)
+    df3 = pd.DataFrame(js3["items"])
+    js1 = await controller.get(registry1, "/flows", 200)
+    df1 = pd.DataFrame(js1["items"])
+    assert df1.drop(columns=["registry_url"]).reset_index(drop=True).equals(
+        df3.drop(columns=["registry_url"]).reset_index(drop=True))
     # hack to cache file:
     cache = (
         controller.tmp_path 
@@ -688,9 +693,10 @@ async def test_registry_cache(controller, tmp_path):
     registry4 = await controller.registry(
         organization="Plan.Net Journey", connect=[registry1.base_url],
         cache=str(cache))
-    df4 = pd.DataFrame(await controller.get(registry4, "/flows", 200))
-    df4.drop(columns=["source"]).reset_index(drop=True).equals(
-        df1.drop(columns=["source"]).reset_index(drop=True))   
+    js4 = await controller.get(registry4, "/flows", 200)
+    df4 = pd.DataFrame(js4["items"])
+    df4.drop(columns=["registry_url"]).reset_index(drop=True).equals(
+        df1.drop(columns=["registry_url"]).reset_index(drop=True))   
     data = kodo.types.ProviderDump.model_validate_json(
         Path(cache).open("r").read())
     Path(f"{setting.CACHE_DATA}.test").open("w").write(
