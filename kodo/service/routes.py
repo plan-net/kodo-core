@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Literal
 from uuid import uuid4, UUID
 
 import httpx
@@ -447,6 +447,18 @@ class NodeConnector(Controller):
 
     # all (nodes, providers, registries)
 
+    @get("/_cache")
+    async def cache(
+            self, 
+            state: State, 
+            request: Request) -> str | None:
+        if Path(state.cache).exists():
+            with Path(state.cache).open("r") as file:
+                data = file.read()
+            dump = kodo.types.ProviderDump.model_validate_json(data)
+            return dump.model_dump_json(indent=2)
+        return None
+
     @get("/flows")
     async def flows(
             self, 
@@ -456,6 +468,7 @@ class NodeConnector(Controller):
             by: Optional[str]=None,
             pp: int=10, 
             p: int=0,
+            format: Optional[Literal["json", "html"]] = None,
             dedup: bool = True) -> Response:
         """
         Return all flows from the nodes and providers masquerading the
@@ -477,9 +490,9 @@ class NodeConnector(Controller):
         for node in source.nodes.values():
             for url, flow in node.flows.items():
                 rows.append({
-                    "registry_url": state.url,
-                    "node_url": node.url,
-                    "node_organization": node.organization,
+                    "registry": state.url,
+                    "node": node.url,
+                    "organization": node.organization,
                     "created": node.created,
                     "modified": node.modified,
                     "heartbeat": node.heartbeat,
@@ -490,6 +503,7 @@ class NodeConnector(Controller):
                     "tags": flow.tags or []
                 })
         # build dataframe for query
+        DEFAULT_SORT = ["name", "node", "url"]
         df = pd.DataFrame(rows)
         if by:
             sort_by = [s.strip().lower() for s in by.split(",")]
@@ -500,26 +514,34 @@ class NodeConnector(Controller):
                 for s in sort_by
             ]
         else:
-            sort_values = ["name", "node_url", "url"]
-            sort_order = [True] * 3
-            sort_by = []
+            sort_values = DEFAULT_SORT
+            sort_order = [True] * len(DEFAULT_SORT)
+            sort_by = DEFAULT_SORT
         if q:
-            sdf = df.query(q).copy()
-            query = q
+            try:
+                sdf = df.query(q).copy()
+                query = q
+            except Exception as e:
+                query = f"{e.__class__.__name__}: {e}"
+                sdf = df
         else:
             query = None
             sdf = df
-        sdf.sort_values(by=sort_values, ascending=sort_order, inplace=True)
-        sdf = sdf.iloc[p * pp : (p + 1) * pp]
-        sdf.reset_index(drop=True, inplace=True)
-        if "text/html" in request.headers.get("accept", ""):
-            return Response(content=sdf.to_html(), media_type="text/html")
+        try:
+            sdf.sort_values(by=sort_values, ascending=sort_order, inplace=True)
+        except Exception as e:
+            sort_by = [f"{e.__class__.__name__}: {e}"]
+            sdf.sort_values(by=DEFAULT_SORT, inplace=True)
+        pdf = sdf.iloc[p * pp : (p + 1) * pp]
+        pdf.reset_index(drop=True, inplace=True)
+        if "text/html" in request.headers.get("accept", "") and format != "json":
+            return Response(content=pdf.to_html(), media_type="text/html")
         return Response(content={
             "total": df.shape[0],
             "filtered": sdf.shape[0],
             "p": p,
             "pp": pp,
-            "items": sdf.to_dict('records'),
+            "items": pdf.to_dict('records'),
             "by": ", ".join(sort_by),
             "q": query
         })
