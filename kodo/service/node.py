@@ -26,25 +26,6 @@ def _default_loader(state: State) -> kodo.worker.loader.Loader:
     return loader
 
 
-def _load_flows(flows: List[dict] | None) -> dict[str, kodo.types.Flow]:
-    # instantiate flow objects
-    if flows:
-        return {f["name"]: kodo.types.Flow(**f) for f in flows}
-    return {}
-
-
-def _load_nodes_from_cache(
-        nodes: List[dict] | None) -> dict[str, kodo.types.Node]:
-    # todo: instantiate node objects from .cache
-    return {}
-
-
-def _load_providers_from_cache(
-        providers: List[dict] | None) -> dict[str, kodo.types.ProviderOffer]:
-    # todo: instantiate provider objects from .cache
-    return {}
-
-
 def create_app(
     url: str | None = None,
     connect: Optional[List[str]] = None,
@@ -137,12 +118,11 @@ def create_app(
     if not state.registry and oload.providers:
         raise ValueError(
             "nodes/providers allowed for registry/provider only")
-    # load initial data from .cache
+    # load initial data
     if state.node:
         state.flows = oload.flows_dict()
         state.entry_points = oload.entry_points_dict()
     if state.registry or state.provider:
-        #state.nodes = oload.nodes_dict()
         state.providers = oload.providers_dict()
     app = Litestar(
         route_handlers=[NodeConnector],

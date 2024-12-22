@@ -16,6 +16,7 @@ from kodo.service.controller import Controller
 
 
 # todo: disallow cyclic connections
+# todo: modularize this module!
 
 def _build_provider(state: State) -> kodo.types.ProviderOffer:
     payload = state.nodes
@@ -152,7 +153,6 @@ async def connect_registry(url, state) -> None:
     _release(state)
     await _cache_data(state)
     logger.info(f"{state.url} registry startup complete")
-
 
 
 @listener("update_node")
@@ -342,8 +342,6 @@ class NodeConnector(Controller):
                     }, status_code=HTTP_200_OK)
         return _default_response(state, *message)
 
-
-
     # registries and providers
 
     @post("/update/node")
@@ -389,6 +387,7 @@ class NodeConnector(Controller):
 
         return _default_response(state, *message)
 
+
     @post("/update/registry")
     async def post_registry(
         self, 
@@ -411,6 +410,7 @@ class NodeConnector(Controller):
                 message.append(f"updated provider {data.url}")
             state.providers[data.url] = data
         return _default_response(state, *message)
+
 
     @get("/flow/{path:path}")
     async def visit_flow(self, path: str, state: State) -> Response:
