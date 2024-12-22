@@ -815,12 +815,30 @@ async def test_flow_pager(controller):
     assert df4.shape[0] == 0
     names = pd.concat([df0, df1, df2, df3, df4]).name.tolist()
     assert names == sorted([i["name"] for i in test_data])
-    p = await controller.get(registry4, "/flows?pp=15&p=0&q=organization=='Mediaplus'", 200)
+    p = await controller.get(
+        registry4, "/flows?pp=15&p=0&q=organization=='Mediaplus'", 200)
     df = pd.DataFrame(p["items"])    
     assert df.organization.unique().tolist() == ["Mediaplus"]
     assert df.shape[0] == 7
-    p = await controller.get(registry4, "/flows?pp=15&p=0&q=organization=='Mediaplus'&by=author,name:d", 200)
+    p = await controller.get(
+        registry4, 
+        "/flows?pp=15&p=0&q=organization=='Mediaplus'&by=author,name:d", 200)
     df = pd.DataFrame(p["items"])    
     assert ['Agent Hades', 'Agent Demeter', 'Agent Zeus', 'Agent Hestia', 
             'Agent Hephaestus', 'Agent Poseidon', 'Agent Dionysus'] == df.name.tolist()
 #    Path(f"output.json").open("w").write(data.model_dump_json(indent=2))
+
+
+async def test_flow_pager_error(controller):
+    registry4 = await test_registry_props(controller)
+    resp = await controller.get(
+        registry4, "/flows?q=" + urllib.parse.quote("a==1"), 200)
+    assert resp["q"] == "UndefinedVariableError: name 'a' is not defined"
+    resp = await controller.get(
+        registry4, "/flows?q=" + urllib.parse.quote("a=1"), 200)
+    assert resp["q"] == "ValueError: cannot assign without a target object"
+    resp = await controller.get(
+        registry4, "/flows?q=" + urllib.parse.quote(""), 200)
+    assert resp["q"] == "ValueError: cannot assign without a target object"
+    p0 = await controller.get(registry4, "/flows?a=1", 200)
+    p0 

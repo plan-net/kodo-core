@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
-from pydantic import field_validator
+from pydantic import field_validator, ConfigDict
 from typing import Any, List
 from pydantic_settings import BaseSettings
 
@@ -20,12 +20,12 @@ class Config(BaseSettings):
     EXEC_DATA: str = "./data/exec"
     CACHE_DATA: str = "./data/cache.json"
 
-    model_config = {
-        "env_file": ".env",
-        "env_prefix": "KODO_",
-        "env_file_encoding": "utf-8",
-        "extra": "allow"
-    }
+    model_config = ConfigDict(
+        env_file=".env",
+        env_prefix="KODO_",
+        env_file_encoding="utf-8",
+        extra="allow"
+    )
 
     @field_validator("REGISTRY", mode="before")
     def split_registry(cls, v):

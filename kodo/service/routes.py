@@ -518,6 +518,9 @@ class NodeConnector(Controller):
             sort_order = [True] * len(DEFAULT_SORT)
             sort_by = DEFAULT_SORT
         if q:
+            def tag(t):
+                return df.index.isin(
+                    df.explode("tags")[(df.explode("tags").tags == t)].index)
             try:
                 sdf = df.query(q).copy()
                 query = q
