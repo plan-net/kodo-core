@@ -163,4 +163,8 @@ cython_debug/
 
 # kodosumi
 data/
-.vscode/
+.vscode
+
+crews/dev/*.yaml
+.sesskey
+*.log.*

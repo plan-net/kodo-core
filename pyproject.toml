@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+
+[project]
+name = "kodo"
+version = "0.0.0"
+description = "kodosumi is a framework to execute and orchestrate intelligent agents safe and at scale."
+readme = "README.md"
+license = {text = "MPL-2.0"}
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "click",
+    "crewai",
+    "crewai_tools",
+    "pydantic",
+    "pydantic-settings",
+    "litestar[standard]"
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "isort",
+    "autopep8"
+]
