@@ -517,6 +517,14 @@ class NodeConnector(Controller):
             sort_values = DEFAULT_SORT
             sort_order = [True] * len(DEFAULT_SORT)
             sort_by = DEFAULT_SORT
+        if "tags" in sort_values:
+            # special handling of list values
+            idx = sort_values.index("tags")
+            order = sort_order[idx]
+            df["tags"] = df.tags.apply(lambda r: sorted(r, reverse=not order))
+            df["_tags"] = df.tags.apply(lambda r: "+".join(r))
+            sort_values.remove("tags")
+            sort_values.insert(idx, "_tags")
         if q:
             def tag(t):
                 return df.index.isin(
@@ -535,6 +543,8 @@ class NodeConnector(Controller):
         except Exception as e:
             sort_by = [f"{e.__class__.__name__}: {e}"]
             sdf.sort_values(by=DEFAULT_SORT, inplace=True)
+        if "_tags" in sort_values:
+            sdf.drop(columns="_tags", inplace=True)
         pdf = sdf.iloc[p * pp : (p + 1) * pp]
         pdf.reset_index(drop=True, inplace=True)
         if "text/html" in request.headers.get("accept", "") and format != "json":
