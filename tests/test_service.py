@@ -837,8 +837,30 @@ async def test_flow_pager_error(controller):
     resp = await controller.get(
         registry4, "/flows?q=" + urllib.parse.quote("a=1"), 200)
     assert resp["q"] == "ValueError: cannot assign without a target object"
+
+
+async def test_sort_by_tags(controller, tmp_path):
+    registry4 = await test_registry_cache(controller, tmp_path)
+    q = '@tag("communications")|@tag("vehicle")|@tag("maintenance")'
+    b = "tags:desc,name:asc"
     resp = await controller.get(
-        registry4, "/flows?q=" + urllib.parse.quote(""), 200)
-    assert resp["q"] == "ValueError: cannot assign without a target object"
-    p0 = await controller.get(registry4, "/flows?a=1", 200)
-    p0 
+        registry4, 
+        "/flows?q=" + urllib.parse.quote(q) + "&by=" + urllib.parse.quote(b), 
+        200)
+    assert resp["total"] == 50
+    assert resp["filtered"] == 2
+    assert [i["tags"] for i in resp["items"]] == [
+        ['vehicle', 'maintenance'], 
+        ['expert', 'communications']
+    ]
+    b = "tags:asc,name:asc"
+    resp = await controller.get(
+        registry4, 
+        "/flows?q=" + urllib.parse.quote(q) + "&by=" + urllib.parse.quote(b), 
+        200)
+    assert resp["total"] == 50
+    assert resp["filtered"] == 2
+    assert [i["tags"] for i in resp["items"]] == [
+        ['communications', 'expert'],
+        ['maintenance', 'vehicle']
+    ]

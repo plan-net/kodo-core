@@ -124,6 +124,8 @@ def create_app(
         state.entry_points = oload.entry_points_dict()
     if state.registry or state.provider:
         state.providers = oload.providers_dict()
+    if oload.organization:
+        state.organization = oload.organization
     app = Litestar(
         route_handlers=[NodeConnector],
         on_startup=[NodeConnector.startup],

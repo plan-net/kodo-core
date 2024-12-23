@@ -50,7 +50,7 @@ class Loader:
 
     def __init__(self): 
         self.flows = {}
-        # self.nodes = {}
+        self.organization = None
         self.providers = {}
 
     def reload(self):
@@ -62,6 +62,7 @@ class Loader:
             with Path(filename).open("r") as file:
                 data = file.read()
             dump = kodo.types.ProviderDump.model_validate_json(data)
+            self.organization = dump.organization
             self.providers = dump.providers
 
 
