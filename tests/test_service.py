@@ -833,10 +833,10 @@ async def test_flow_pager_error(controller):
     registry4 = await test_registry_props(controller)
     resp = await controller.get(
         registry4, "/flows?q=" + urllib.parse.quote("a==1"), 200)
-    assert resp["q"] == "UndefinedVariableError: name 'a' is not defined"
+    assert resp["q"] == "UndefinedVariableError: name 'a' is not defined, fulltext: a==1"
     resp = await controller.get(
         registry4, "/flows?q=" + urllib.parse.quote("a=1"), 200)
-    assert resp["q"] == "ValueError: cannot assign without a target object"
+    assert resp["q"] == "ValueError: cannot assign without a target object, fulltext: a=1"
 
 
 async def test_sort_by_tags(controller, tmp_path):
