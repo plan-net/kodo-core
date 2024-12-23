@@ -459,21 +459,7 @@ class NodeConnector(Controller):
             return dump.model_dump_json(indent=2)
         return None
 
-    @get("/flows")
-    async def flows(
-            self, 
-            state: State, 
-            request: Request,
-            q: Optional[str]=None,
-            by: Optional[str]=None,
-            pp: int=10, 
-            p: int=0,
-            format: Optional[Literal["json", "html"]] = None,
-            dedup: bool = True) -> Response:
-        """
-        Return all flows from the nodes and providers masquerading the
-        sourcing registry. Returns a pandas DataFrame.
-        """
+    def _build_dataframe(self, state: State) -> pd.DataFrame:
         source = None
         if state.registry:
             source = _build_provider(state)
@@ -502,9 +488,25 @@ class NodeConnector(Controller):
                     "description": flow.description or "missing description",
                     "tags": flow.tags or []
                 })
-        # build dataframe for query
+        return pd.DataFrame(rows)
+
+    @get("/flows")
+    async def flows(
+            self, 
+            state: State, 
+            request: Request,
+            q: Optional[str]=None,
+            by: Optional[str]=None,
+            pp: int=10, 
+            p: int=0,
+            format: Optional[Literal["json", "html"]] = None,
+            dedup: bool = True) -> Response:
+        """
+        Return all flows from the nodes and providers masquerading the
+        sourcing registry. Returns a pandas DataFrame.
+        """
+        df = self._build_dataframe(state)
         DEFAULT_SORT = ["name", "node", "url"]
-        df = pd.DataFrame(rows)
         if by:
             sort_by = [s.strip().lower() for s in by.split(",")]
             sort_values = [s.split(":")[0] for s in sort_by]
@@ -533,8 +535,16 @@ class NodeConnector(Controller):
                 sdf = df.query(q).copy()
                 query = q
             except Exception as e:
-                query = f"{e.__class__.__name__}: {e}"
-                sdf = df
+                query = f"{e.__class__.__name__}: {e}, fulltext: {q}"
+                df["_fulltext_"] = df.apply(
+                    lambda r: " ".join([
+                        r["organization"],
+                        r["name"],
+                        r["author"],
+                        r["description"],
+                        " ".join(r["tags"])
+                    ]), axis=1)
+                sdf = df[df._fulltext_.str.lower().str.contains(q.lower())]
         else:
             query = None
             sdf = df
@@ -558,3 +568,18 @@ class NodeConnector(Controller):
             "by": ", ".join(sort_by),
             "q": query
         })
+
+    @get("/counts")
+    async def counts(
+            self, 
+            state: State, 
+            request: Request,
+            format: Optional[Literal["json", "html"]] = None) -> Response:
+        df = self._build_dataframe(state)
+        return Response(content={
+            "total": df.shape[0],
+            "node": df.groupby(["node"]).name.nunique().to_dict(),
+            "organization": df.groupby(["organization"]).name.nunique().to_dict(),
+            "tags": df.explode("tags").groupby("tags").name.nunique().to_dict()
+        })
+    

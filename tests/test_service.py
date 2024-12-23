@@ -864,3 +864,19 @@ async def test_sort_by_tags(controller, tmp_path):
         ['communications', 'expert'],
         ['maintenance', 'vehicle']
     ]
+
+async def test_count(controller, tmp_path):
+    registry4 = await test_registry_cache(controller, tmp_path)
+    resp = await controller.get(registry4, "/counts", 200)
+    assert resp["total"] == 50
+    assert len(resp["node"]) == 5
+    assert len(resp["organization"]) == 5
+    assert sum(list(resp["organization"].values())) == 50
+    len(
+        set(
+            resp["organization"].keys()).intersection([
+                'MP Research', 'Mediaplus', 'Serviceplan', 'Serviceplan HR', 
+                'Serviceplan PR'])) == 5
+    resp = await controller.get(registry4, "/flows?q=specialist", 200)
+    assert resp["total"] == 50
+    assert resp["filtered"] == 5
