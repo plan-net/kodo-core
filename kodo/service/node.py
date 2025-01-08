@@ -35,12 +35,12 @@ def create_app(**kwargs) -> Litestar:
             kodo.service.signal.reconnect
         ],
         state=state,
-        openapi_config=OpenAPIConfig(
-            title="kodosumi API",
-            description="kodosumi mesh with registries, nodes, flows",
-            version=kodo.__version__,
-            render_plugins=[RedocRenderPlugin()],
-        ),
+        # openapi_config=OpenAPIConfig(
+        #     title="kodosumi API",
+        #     description="kodosumi mesh with registries, nodes, flows",
+        #     version=kodo.__version__,
+        #     render_plugins=[RedocRenderPlugin()],
+        # ),
         debug=False
     )
     kodo.log.identifier = state.url
