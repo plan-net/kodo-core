@@ -1,0 +1,39 @@
+{
+  "url": "http://localhost:3366",
+  "organization": "registry1",
+  "feed": true,
+  "nodes": {
+    "http://localhost:3380": {
+      "url": "http://localhost:3380",
+      "organization": null,
+      "flows": {
+        "/test1": {
+          "url": "/test1",
+          "name": "Test 1",
+          "description": null,
+          "author": null,
+          "tags": []
+        },
+        "/test2": {
+          "url": "/test2",
+          "name": "Test 3",
+          "description": null,
+          "author": null,
+          "tags": []
+        },
+        "/test4": {
+          "url": "/test4",
+          "name": "Test 4",
+          "description": null,
+          "author": null,
+          "tags": []
+        }
+      },
+      "created": "2024-12-26T18:06:22.203752",
+      "modified": "2024-12-26T18:06:22.203752",
+      "heartbeat": "2024-12-26T18:06:22.203752",
+      "status": "unknown"
+    }
+  },
+  "providers": {}
+}

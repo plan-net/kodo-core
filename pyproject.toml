@@ -22,7 +22,6 @@ dependencies = [
 tests = [
     "pytest",
     "pytest-asyncio",
-    "pytest-cov",
     "isort",
     "autopep8"
 ]

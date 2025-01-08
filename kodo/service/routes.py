@@ -1,570 +1,280 @@
-from pathlib import Path
-from typing import Optional, Any, Literal
-from uuid import uuid4, UUID
+from typing import Union, Optional, Literal, List
+import signal
+import sys
 
-import httpx
-import pandas as pd
-from litestar import Litestar, Request, Response, get, post
+from litestar import Litestar, Request, get, post, delete, Response
 from litestar.datastructures import State
-from litestar.events import listener
-from litestar.status_codes import HTTP_200_OK, HTTP_404_NOT_FOUND
+from litestar.exceptions import NotFoundException
+from litestar.status_codes import HTTP_201_CREATED
+import httpx
 
-import kodo.types
-from kodo import helper
-from kodo.config import logger, setting
-from kodo.service.controller import Controller
-
-
-# todo: disallow cyclic connections
-# todo: modularize this module!
-
-def _build_provider(state: State) -> kodo.types.ProviderOffer:
-    payload = state.nodes
-    for provider_url, provider in state.providers.items():
-        if provider_url != state.url:
-            for node in provider.nodes.values():
-                if node.url in payload:
-                    continue
-                payload[node.url] = node
-    return kodo.types.ProviderOffer(
-        url=state.url, 
-        organization=state.organization,
-        feed=state.registry, 
-        nodes=payload)
+import kodo
+import kodo.helper as helper
+from kodo.log import logger
+import kodo.service.controller
+import kodo.service.signal
+import kodo.worker.loader
+from kodo.service.flow import build_df, sort_df, filter_df
 
 
-def _default_response(state: State, *message: str) -> Response:
-    if message:
-        for m in message:
-            logger.info(f"client message: {m}")
-    return Response(content={
-        "url": state.url,
-        "organization": state.organization,
-        "node": state.node,
-        "registry": state.registry,
-        "provider": state.provider,
-        "connection": state.connection,
-        "started_at": state.started_at,
-        "idle": state.event == 0,
-        "now": helper.now(),
-        "message": message
-    }, status_code=HTTP_200_OK)
+def signal_handler(signal, frame):
+    print(f' -- interrupt triggers shutdown')
+    sys.exit(4)
 
 
-async def _connect(endpoint, state, url, **kwargs) -> dict | None:
-    logger.info(f"{state.url} establishes connection ({endpoint})")
-    backoff = helper.Backoff()
-    while True:
-        client = httpx.AsyncClient()
-        try:
-            response = await client.post(
-                endpoint, timeout=setting.REQUEST_TIMEOUT, **kwargs)
-            if response.status_code == HTTP_200_OK:
-                state.connection[url] = helper.now()
-                logger.info(f"{state.url} successfully connected to {url}")
-                return response.json()
-            elif response.status_code == HTTP_404_NOT_FOUND:
-                logger.error(f"{state.url} failed to connect to {url}, "
-                             f"which is not a regsitry/provider")
-                return None
-        except:
-            pass
-        await backoff.wait()
-
-
-def _get_peers(state: State) -> list[kodo.types.Provider]:
-    peers = []
-    for provider in state.providers.values():
-        if provider.url != state.url:
-            peers.append(provider)
-    if peers:
-        peer_list = ", ".join([p.url for p in peers])
-        logger.info(f"{state.url} has {len(peers)} peers: {peer_list}")
-    return peers
-
-
-def _emit(app, event, *args, **kwargs) -> None:
-    # emit litestar application event and increase the semaphore to identify
-    # the number of open events
-    app.state.event += 1
-    app.emit(event, *args, **kwargs)
-    logger.info(f"increase semaphore to {app.state.event}")
-
-
-def _release(state: State):
-    state.event -= 1
-    logger.info(f"decrease semaphore to {state.event}")
-
-
-async def _cache_data(state: State) -> None:
-    dump = kodo.types.ProviderDump(
-        url=state.url,
-        organization=state.organization,
-        feed=state.registry,
-        nodes=state.nodes,
-        providers=state.providers
-    )
-    Path(state.cache).open("w").write(dump.model_dump_json(indent=2))
-
-# event listeners
-
-@listener("connect_node")
-async def connect_node(url, state) -> None:
-    """
-    Connects the node with the registry or provider. No response is expected.
-    This event is triggered at node .startup().
-    """
-    data = kodo.types.Node(
-        url=state.url, 
-        organization=state.organization, 
-        flows=state.flows,
-        status=state.status)
-    await _connect(f"{url}/register", state, url, data=data.model_dump_json())
-    _release(state)
-    logger.info(f"{state.url} node startup complete")
-
-
-@listener("connect_registry")
-async def connect_registry(url, state) -> None:
-    """
-    Connects the registry or provider with another registry and delivers the
-    masqeraded ProviderOffer. In return the other registry delivers it's 
-    ProviderOffer which is saved to state.providers.
-    This event is triggered at node .startup().
-    """
-    data = _build_provider(state)
-    response = await _connect(
-        f"{url}/connect", state, url, data=data.model_dump_json())
-    # if this is a registry, then send response if requested
-    if state.registry:
-        # a registry expects response
-        if isinstance(response, dict):
-            feedback = kodo.types.ProviderOffer(**response["providers"])
-            modified = helper.now()
-            if feedback.url in state.providers:
-                created = state.providers[feedback.url].created
-            else:
-                created = modified
-            if feedback.url == state.url:
-                raise RuntimeError("unexpected system behavior")
-            state.providers[feedback.url] = kodo.types.Provider(
-                created=created, modified=modified, heartbeat=modified,
-                **response["providers"])
-    _release(state)
-    await _cache_data(state)
-    logger.info(f"{state.url} registry startup complete")
-
-
-@listener("update_node")
-async def update_node(
-    url: str, 
-    state: State, 
-    record: kodo.types.Node | kodo.types.ProviderOffer) -> None:
-    """
-    Forwards a node (reconnect) received with /register or a node update
-    received from a provider and packaged in ProviderOffer to a connected 
-    providers.
-    """
-    if isinstance(record, kodo.types.Node):
-        record = kodo.types.ProviderOffer(
-            url=state.url,
-            organization=state.organization,
-            feed=False,  # no response expected at this stage
-            nodes={record.url: record}
-        )
-    await _connect(
-        f"{url}/update/node", state, url, data=record.model_dump_json())
-    await _cache_data(state)
-    _release(state)
-    logger.info(f"{state.url} update from node {url} completed")
-
-
-@listener("update_registry")
-async def update_registry(
-    url: str, 
-    state: State, 
-    record: kodo.types.Provider) -> None:
-    """
-    Forwards a provider update received with /connect to all connected 
-    providers.
-    """
-    await _connect(
-        f"{url}/update/registry", state, url, data=record.model_dump_json())
-    await _cache_data(state)
-    _release(state)
-    logger.info(f"{state.url} update from registry {url} completed")
-
-# controller
-class NodeConnector(Controller):
+class NodeConnector(kodo.service.controller.Controller):
     path = "/"
 
     @staticmethod
     def startup(app: Litestar) -> None:
         app.state.started_at = helper.now()
-        NodeConnector.connect_registry(app)
-        NodeConnector.node_discovery(app)
-
-    @staticmethod
-    def connect_registry(app: Litestar) -> None:
-        if not app.state.connection:
-            return
-        if app.state.registry:
-            # registry event
-            event = "connect_registry"
-        else:
-            # node event
-            event = "connect_node"
         for url in app.state.connection:
-            _emit(app, event, url, app.state)
-
-    @staticmethod
-    def node_discovery(app: Litestar) -> None:
-        # todo: implement
-        if not app.state.node:
-            return
-        logger.info("node discovery")
-        return
+            kodo.service.signal.emit(app, "connect", url, app.state)
+        if app.state.registry:
+            for provider in app.state.providers.values():
+                kodo.service.signal.emit(
+                    app, "reconnect", provider.url, app.state)
+            logger.info(
+                f"registry startup complete (feed is {app.state.feed})")
+        else:
+            logger.info("node startup complete")
+        signal.signal(signal.SIGINT, signal_handler)
 
     @staticmethod
     def shutdown(app: Litestar) -> None:
-        logger.info("shutdown now")
+        logger.info(f"shutdown now")
 
-    @get()
-    async def home(self, request: Request, state: State) -> Response:
-        return _default_response(state)
-
-    # providers only
-
-    @get("/map")
-    async def providers_map(self, state: State) -> kodo.types.ProviderDump:
-        return kodo.types.ProviderDump(
-            url=state.url,
-            organization=state.organization,
-            feed=state.registry,
-            nodes=state.nodes,
-            providers=state.providers
-        )
-
-    # nodes only
-
-    @post("/register")
-    async def register(
+    @get("/",
+         summary="Home",
+         description="Genearl state information of the registry/node.")
+    async def home(
             self,
-            state: State,
             request: Request,
-            data: Optional[kodo.types.Node] = None) -> Response:
-        """
-        Register a node with the registry, receives Node, saves
-        Node in state.nodes and returns status.
-        """
-        if not state.registry:
-            logger.warning(f"{state.url} is not a registry")
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        message = []
-        if data:
-            data.modified = helper.now()
-            if data.url in state.nodes:
-                previous = state.nodes[data.url].created
-                data.created = state.nodes[data.url].created
-                message.append(
-                    f"registered node {data.url} (seen previously {previous})")
-            else:
-                data.created = data.modified
-                message.append(
-                    f"registered node {data.url} (first visit)")
-            data.heartbeat = data.modified
-            state.nodes[data.url] = kodo.types.Node(**data.model_dump())
-            for provider in _get_peers(state):
-                if state.url == provider.url:
-                    raise RuntimeError("unexpected system behavior")
-                _emit(request.app, "update_node", provider.url, state, data)
-                message.append(f"feed forward node to {provider.url}")
-        return _default_response(state, *message)
+            state: State) -> kodo.datatypes.DefaultResponse:
+        logger.debug(f"return from home")
+        return kodo.service.controller.default_response(state)
 
-    # providers and registries only
+    @get("/map",
+         summary="Map",
+         description="Runtime data on providers, connection and registers.")
+    async def get_map(self, state: State) -> kodo.datatypes.ProviderMap:
+        default = kodo.service.controller.default_response(state).model_dump()
+        default["providers"] = state.providers.values()
+        default["connection"] = state.connection
+        default["registers"] = state.registers
+        logger.debug(
+            f"return /map providers: {len(state.providers.values())}, "
+            f"registers: {len(state.registers)}, "
+            f"and connection: {len(state.connection)}")
+        return kodo.datatypes.ProviderMap(**default)
 
-    @post("/connect")
+    @get("/connect",
+         summary="Connect (preview)",
+         description="Registry nodes data.")
+    async def get_connect(self, state: State) -> kodo.datatypes.Connect:
+        default = kodo.service.controller.default_response(state)
+        nodes = kodo.service.controller.build_registry(state)
+        logger.debug(f"return /connect with {helper.stat(nodes)}")
+        return kodo.datatypes.Connect(**default.model_dump(), nodes=nodes)
+
+    @post("/connect",
+          summary="Connect",
+          description="Connect to registry as node/registry.")
     async def connect(
             self,
             state: State,
             request: Request,
-            data: Optional[kodo.types.ProviderOffer] = None) -> Response:
-        """
-        Connect a registry or provider with the registry, receive
-        ProviderOffer, save Provider into state.providers and return the
-        masqueraded ProviderOffer. Informs other providers about the update.
-        """
+            data: kodo.datatypes.Connect) -> Union[
+                kodo.datatypes.Connect, kodo.datatypes.DefaultResponse]:
+        # inbound data
         if not state.registry:
-            logger.warning(f"{state.url} is not a registry")
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        message = []
-        if data:
-            modified = helper.now()
-            if data.url in state.providers:
-                previous = state.providers[data.url].created
-                created = state.providers[data.url].created
-                message.append(
-                    f"registry {data.url} connected "
-                    f"(seen previously {previous})")
-            else:
-                created = modified
-                message.append(f"registry {data.url} connected (first visit)")
-            # create Provider from ProviderOffer
-            record = kodo.types.Provider(
-                created=created, 
-                modified=modified, 
-                heartbeat=modified,
-                connect=True,
-                **data.model_dump())
-
-            # save in own registry
-            state.providers[data.url] = record
-            await _cache_data(state)
-
-            masquerade = kodo.types.Provider(**record.model_dump())
-            masquerade.url = state.url
-            # inform connected registries
-            for provider in _get_peers(state):
-                # skip current client
-                if provider.url != record.url:
-                    _emit(
-                        request.app, "update_registry",
-                        provider.url, state, masquerade)
-                    message.append(
-                        f"feed forward {record.url} to {provider.url}")
-            if record.feed:
-                # client requests response (is a registry)
-                logger.info(f"{state.url} return is providers")
-                return Response(
-                    content={
-                        "providers": _build_provider(state).model_dump(),
-                        "message": message
-                    }, status_code=HTTP_200_OK)
-        return _default_response(state, *message)
-
-    # registries and providers
-
-    @post("/update/node")
-    async def post_node(
-        self,
-        state: State,
-        request: Request,
-        data: Optional[kodo.types.ProviderOffer] = None) -> Response:
-        """
-        update node data from provider
-        """
-        if not state.registry:
-            logger.warning(f"{state.url} is not a registry")
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        message = []
-        if data:
-            modified = helper.now()
-            if data.url in state.providers:
-                provider = state.providers[data.url]
-                # iterate over new nodes
-                for node in data.nodes.values():
-                    if node.url in provider.nodes:
-                        message.append(f"updated node {data.url}")
-                    else:
-                        message.append(f"created node {data.url}")
-                    provider.nodes[node.url] = node
-            else:
-                raise RuntimeError("unexpected system behavior")
-
-            masquerade = kodo.types.ProviderOffer(**data.model_dump())
-            masquerade.url = state.url
-            # inform connected registries
-            for provider in _get_peers(state):
-                # skip current client
-                if provider.url == state.url:
-                    raise RuntimeError("unexpected system behavior")
-                elif provider.url != data.url:
-                    _emit(
-                        request.app, "update_node",
-                        provider.url, state, masquerade)
-                    message.append(f"feed forward {
-                                   data.url} to {provider.url}")
-
-        return _default_response(state, *message)
-
-
-    @post("/update/registry")
-    async def post_registry(
-        self, 
-        state: State, 
-        data: Optional[kodo.types.Provider] = None) -> Response:
-        """
-        update registry data from provider
-        """
-        if not state.registry:
-            logger.warning(f"{state.url} is not a registry")
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        message = []
-        if data:
-            modified = helper.now()
-            if data.url in state.providers:
-                created = state.providers[data.url].created
-                message.append(f"updated provider {data.url}")
-            else:
-                created = modified
-                message.append(f"updated provider {data.url}")
-            state.providers[data.url] = data
-        return _default_response(state, *message)
-
-
-    @get("/flow/{path:path}")
-    async def visit_flow(self, path: str, state: State) -> Response:
-        if state.registry:
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        if path in state.entry_points:
-            # todo: call flow's method decorated with @welcome
-            entry = state.entry_points[path]
-            return Response(content={"entry_point": entry}, status_code=HTTP_200_OK)
-        return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-
-    @post("/flow/create/{path:path}")
-    async def create_flow_execution(self, path: str, state: State) -> Response:
-        if state.registry:
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        entry = state.entry_points.get(path)
-        # todo: call flow's method decorated with @entry
-        #       detach from parent process
-        #       return fid
-        # todo: persist the flow with fid
-        fid = uuid4()
-        return Response(content={
-            "entry_point": entry,
-            "fid": fid
-        }, status_code=HTTP_200_OK)
-        # raise Forbidden if prerequisites fail
-
-    @post("/flow/launch/{fid:uuid}")
-    async def launch_flow(self, fid: UUID, state: State) -> Response:
-        if state.registry:
-            return Response(content={}, status_code=HTTP_404_NOT_FOUND)
-        # todo: load flow from fid
-        return Response(content={"fid": fid}, status_code=HTTP_200_OK)
-
-    # all (nodes, providers, registries)
-
-    @get("/_cache")
-    async def cache(
-            self, 
-            state: State, 
-            request: Request) -> str | None:
-        if Path(state.cache).exists():
-            with Path(state.cache).open("r") as file:
-                data = file.read()
-            dump = kodo.types.ProviderDump.model_validate_json(data)
-            return dump.model_dump_json(indent=2)
-        return None
-
-    def _build_dataframe(self, state: State) -> pd.DataFrame:
-        source = None
-        if state.registry:
-            source = _build_provider(state)
+            raise NotFoundException()
+        modified = helper.now()
+        if data.url in state.providers:
+            created = state.providers[data.url].created
         else:
-            source = kodo.types.ProviderOffer(
-                url=state.url, 
-                feed=False, nodes={
-                    state.url: kodo.types.Node(
-                        url=state.url, 
-                        organization=state.organization,
-                        flows=state.flows,
-                        status=state.status)})
-        rows = []
-        for node in source.nodes.values():
-            for url, flow in node.flows.items():
-                rows.append({
-                    "registry": state.url,
-                    "node": node.url,
-                    "organization": node.organization,
-                    "created": node.created,
-                    "modified": node.modified,
-                    "heartbeat": node.heartbeat,
-                    "url": flow.url,
-                    "name": flow.name,
-                    "author": flow.author or "missing author",
-                    "description": flow.description or "missing description",
-                    "tags": flow.tags or []
-                })
-        return pd.DataFrame(rows)
+            created = modified
+        provider = kodo.datatypes.Provider(
+            url=data.url,
+            organization=data.organization,
+            feed=data.feed,
+            created=created,
+            modified=modified,
+            nodes=data.nodes
+        )
+        state.providers[provider.url] = provider
+        state.registers[provider.url] = modified
+        kodo.worker.loader.Loader.save_to_cache(state)
+        logger.info(
+            f"connect from {data.url} with {helper.stat(data.nodes)}, "
+            f"feed {data.feed} to organization {data.organization}")
+        default = kodo.service.controller.default_response(state)
+
+        if state.feed:
+            # peers update
+            feed = kodo.datatypes.Connect(
+                **default.model_dump(), nodes=data.nodes)
+            for peer in state.providers.values():
+                if peer.feed:
+                    if peer.url != data.url:
+                        logger.debug(
+                            f"broadcast {peer.url}/connect "
+                            f"with {helper.stat(data.nodes)}")
+                        kodo.service.signal.emit(
+                            request.app, "update", peer.url, state, feed)
+        # outbound data
+        if data.feed:
+            if not state.registry:
+                raise NotFoundException()
+            nodes = kodo.service.controller.build_registry(state)
+            logger.debug(f"return to {data.url} with {helper.stat(nodes)}")
+            return kodo.datatypes.Connect(**default.model_dump(), nodes=nodes)
+        return default
+
+    @post("/disconnect")
+    async def godown(
+            self,
+            state: State,
+            request: Request,
+            data: kodo.datatypes.Disconnect) -> dict:
+        logger.info(f"/disconnect from {data.provider}")
+        if data.provider in state.providers:
+            provider = state.providers[data.provider]
+            if provider.url in data.url:
+                data.url = [
+                    node.url for node in state.providers[data.provider].nodes
+                ]
+                del state.providers[data.provider]
+                logger.info(f"removed provider: {data.provider}")
+            else:
+                before = len(provider.nodes)
+                provider.nodes = [
+                    node for node in provider.nodes if node.url not in data.url
+                ]
+                if len(provider.nodes) != before:
+                    logger.info(
+                        f"removed nodes: {before - len(provider.nodes)}")
+            kodo.worker.loader.Loader.save_to_cache(state)
+            if state.feed:
+                for peer in state.providers.values():
+                    if peer.feed and peer.url != data.provider:
+                        logger.debug(
+                            f"broadcast {peer.url}/disconnect of {data.url}")
+                        try:
+                            resp = httpx.post(
+                                f"{peer.url}/disconnect",
+                                json=kodo.datatypes.Disconnect(
+                                    provider=state.url,
+                                    url=data.url).model_dump(),
+                                timeout=None)
+                            logger.info(
+                                f"disconnect from {peer.url}: {resp.json()}")
+                        except:
+                            logger.error(f"disconnect from {peer.url} failed")
+        else:
+            raise NotFoundException
+        return data.model_dump()
+
+    @delete("/connect")
+    async def disconnect(
+            self,
+            state: State,
+            request: Request) -> None:
+        for url in state.connection.keys():
+            try:
+                resp = httpx.post(
+                    f"{url}/disconnect",
+                    json=kodo.datatypes.Disconnect(
+                        provider=state.url,
+                        url=[state.url]).model_dump(),
+                    timeout=None)
+                if resp.status_code != HTTP_201_CREATED:
+                    logger.error(
+                        f"disconnect from {url} failed: {resp.json()}")
+            except Exception as e:
+                logger.error(f"disconnect from {url} failed: {e}")
+
+    @post("/reconnect")
+    async def reconnect(
+            self,
+            state: State,
+            request: Request,
+            data: kodo.datatypes.DefaultResponse) -> None:
+        kodo.service.signal.emit(request.app, "connect", data.url, state)
+
+    @post("/update")
+    async def update(
+            self,
+            state: State,
+            request: Request,
+            data: kodo.datatypes.Connect) -> kodo.datatypes.DefaultResponse:
+        # inbound data
+        if not state.registry:
+            raise NotFoundException()
+        modified = helper.now()
+        if data.url not in state.providers:
+            raise RuntimeError("unexpected system state [1]")
+        logger.info(f"update from {data.url} with {helper.stat(data.nodes)}")
+        # shuffle in new node data
+        for node in data.nodes:
+            idx = [i for i, j in enumerate(
+                state.providers[data.url].nodes) if j.url == node.url
+            ]
+            if idx:
+                state.providers[data.url].nodes[idx[0]] = node
+                logger.debug(f"update [{idx[0]}] on {
+                             node.url} from {data.url}")
+            else:
+                state.providers[data.url].nodes.append(node)
+                logger.debug(f"insert on {node.url} from {data.url}")
+        kodo.worker.loader.Loader.save_to_cache(state)
+        default = kodo.service.controller.default_response(state)
+        if state.feed:
+            # peers update
+            feed = kodo.datatypes.Connect(
+                **default.model_dump(), nodes=data.nodes)
+            for peer in state.providers.values():
+                if peer.feed and peer.url != data.url:
+                    logger.debug(
+                        f"broadcast /update to {peer.url} "
+                        f"with {helper.stat(feed.nodes)}")
+                    kodo.service.signal.emit(
+                        request.app, "update", peer.url, state, feed)
+        return default
 
     @get("/flows")
     async def flows(
-            self, 
-            state: State, 
+            self,
+            state: State,
             request: Request,
-            q: Optional[str]=None,
-            by: Optional[str]=None,
-            pp: int=10, 
-            p: int=0,
-            format: Optional[Literal["json", "html"]] = None,
-            dedup: bool = True) -> Response:
+            q: Optional[str] = None,
+            by: Optional[str] = None,
+            pp: int = 10,
+            p: int = 0,
+            format: Optional[Literal["json", "html"]] = None) -> Response:
         """
         Return all flows from the nodes and providers masquerading the
         sourcing registry. Returns a pandas DataFrame.
         """
-        df = self._build_dataframe(state)
-        DEFAULT_SORT = ["name", "node", "url"]
-        if by:
-            sort_by = [s.strip().lower() for s in by.split(",")]
-            sort_values = [s.split(":")[0] for s in sort_by]
-            sort_order = [
-                "ascending".startswith(s.split(":")[-1].lower()) 
-                if ":" in s else True 
-                for s in sort_by
-            ]
-        else:
-            sort_values = DEFAULT_SORT
-            sort_order = [True] * len(DEFAULT_SORT)
-            sort_by = DEFAULT_SORT
-        if "tags" in sort_values:
-            # special handling of list values
-            idx = sort_values.index("tags")
-            order = sort_order[idx]
-            df["tags"] = df.tags.apply(lambda r: sorted(r, reverse=not order))
-            df["_tags"] = df.tags.apply(lambda r: "+".join(r))
-            sort_values.remove("tags")
-            sort_values.insert(idx, "_tags")
-        if q:
-            def tag(t):
-                return df.index.isin(
-                    df.explode("tags")[(df.explode("tags").tags == t)].index)
-            try:
-                sdf = df.query(q).copy()
-                query = q
-            except Exception as e:
-                query = f"{e.__class__.__name__}: {e}, fulltext: {q}"
-                df["_fulltext_"] = df.apply(
-                    lambda r: " ".join([
-                        r["organization"],
-                        r["name"],
-                        r["author"],
-                        r["description"],
-                        " ".join(r["tags"])
-                    ]), axis=1)
-                sdf = df[df._fulltext_.str.lower().str.contains(q.lower())]
-        else:
-            query = None
-            sdf = df
-        try:
-            sdf.sort_values(by=sort_values, ascending=sort_order, inplace=True)
-        except Exception as e:
-            sort_by = [f"{e.__class__.__name__}: {e}"]
-            sdf.sort_values(by=DEFAULT_SORT, inplace=True)
-        if "_tags" in sort_values:
-            sdf.drop(columns="_tags", inplace=True)
-        pdf = sdf.iloc[p * pp : (p + 1) * pp]
-        pdf.reset_index(drop=True, inplace=True)
-        if "text/html" in request.headers.get("accept", "") and format != "json":
-            return Response(content=pdf.to_html(), media_type="text/html")
+        df = build_df(state)
+        total = df.shape[0]
+        df, query = filter_df(df, q)
+        filtered = df.shape[0]
+        df, sort_by = sort_df(df, by)
+        df.reset_index(drop=True, inplace=True)
+        df = df.iloc[p * pp: (p + 1) * pp]
+        logger.debug(
+            f"return /flows with page {p}/{int(total/pp)} "
+            f"and {df.shape[0]}/{total} records")
+        if (("text/html" in request.headers.get("accept", "")
+             and format != "json") | (format == "html")):
+            return Response(content=df.to_html(), media_type="text/html")
         return Response(content={
-            "total": df.shape[0],
-            "filtered": sdf.shape[0],
+            "total": total,
+            "filtered": filtered,
             "p": p,
             "pp": pp,
-            "items": pdf.to_dict('records'),
+            "items": df.to_dict('records'),
             "by": ", ".join(sort_by),
             "q": query
         })
@@ -575,11 +285,14 @@ class NodeConnector(Controller):
             state: State, 
             request: Request,
             format: Optional[Literal["json", "html"]] = None) -> Response:
-        df = self._build_dataframe(state)
-        return Response(content={
-            "total": df.shape[0],
-            "node": df.groupby(["node"]).name.nunique().to_dict(),
-            "organization": df.groupby(["organization"]).name.nunique().to_dict(),
-            "tags": df.explode("tags").groupby("tags").name.nunique().to_dict()
-        })
+        df = build_df(state)
+        return Response(
+            content={
+                "total": df.shape[0],
+                "organization": df.groupby(
+                    ["organization"]).name.nunique().to_dict(),
+                "tags": df.explode("tags").groupby(
+                    "tags").name.nunique().to_dict()
+            }
+        )
     

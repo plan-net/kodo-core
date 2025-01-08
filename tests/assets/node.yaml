@@ -1,0 +1,46 @@
+- url: http://localhost:3366
+- organization: Plan.Net Journey Agentic Node
+- cache_data: ./data/3366.json
+- connect:
+  - http://localhost:3367
+- registry: false
+- feed: false
+- screen_level: debug
+- flows:
+  - entry: kodo.flow.simple:flow
+    url: /test1
+    name: flow1
+    description: flow1 description
+    author: Michael Rau
+    tags:
+      - Safe
+      - Our
+      - Soles
+  - author: tom.hanks@example.com
+    description: Stealth operations expert
+    name: Agent Alpha
+    tags:
+    - stealth
+    - operations
+    url: /agent-alpha
+  - author: meryl.streep@example.com
+    description: Tactical strategist
+    name: Agent Bravo
+    tags:
+    - tactical
+    - strategy
+    url: /agent-bravo
+  - author: leonardo.dicaprio@example.com
+    description: Cybersecurity specialist
+    name: Agent Charlie
+    tags:
+    - cybersecurity
+    - tech
+    url: /agent-charlie
+  - author: scarlett.johansson@example.com
+    description: Undercover operative
+    name: Agent Delta
+    tags:
+    - undercover
+    - operative
+    url: /agent-delta

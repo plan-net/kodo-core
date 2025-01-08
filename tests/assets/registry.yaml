@@ -1,0 +1,6 @@
+- url: http://localhost:3367
+- cache_data: ./data/3367.json
+- organization: Masumi Registry
+- registry: true
+- feed: true
+- screen_level: debug
