@@ -6,7 +6,8 @@ from kodo.worker.loader import publish
 import kodo.interrupt
 
 
-llm = ChatOpenAI(model="ollama/phi3:3.8b", base_url="http://localhost:11434")
+# llm = ChatOpenAI(model="ollama/phi3:3.8b", base_url="http://localhost:11434")
+llm = ChatOpenAI()
 
 # Agents
 story_architect = Agent(

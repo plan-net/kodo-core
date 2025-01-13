@@ -45,18 +45,23 @@ class NodeConnector(kodo.service.controller.Controller):
         logger.info(f"shutdown now")
 
     @get("/",
-         summary="Home",
-         description="Genearl state information of the registry/node.")
+     summary="Node Status Overview",
+     description="Returns general state information about the Kodosumi registry or node, including startup time and status.",
+     tags=["Status", "Registry"],
+     response_model=kodo.datatypes.DefaultResponse)
     async def home(
             self,
             request: Request,
             state: State) -> kodo.datatypes.DefaultResponse:
-        logger.debug(f"return from home")
-        return kodo.service.controller.default_response(state)
+        default = kodo.service.controller.default_response(state)
+        logger.debug(f"return from home with status: {default.status}")
+        return default
 
     @get("/map",
-         summary="Map",
-         description="Runtime data on providers, connection and registers.")
+         summary="Provider and Connection Map",
+         description="Provides detailed runtime data on registered providers, active connections, and node registers within the Kodosumi system.",
+         tags=["Monitoring", "Registry"],
+         response_model=kodo.datatypes.ProviderMap)
     async def get_map(self, state: State) -> kodo.datatypes.ProviderMap:
         default = kodo.service.controller.default_response(state).model_dump()
         default["providers"] = state.providers.values()
@@ -69,8 +74,10 @@ class NodeConnector(kodo.service.controller.Controller):
         return kodo.datatypes.ProviderMap(**default)
 
     @get("/connect",
-         summary="Connect (preview)",
-         description="Registry nodes data.")
+     summary="Registry Node Connections (Preview)",
+     description="Provides a preview of connected registry nodes and their current data within the Kodosumi system.",
+     tags=["Connections", "Registry"],
+     response_model=kodo.datatypes.Connect)
     async def get_connect(self, state: State) -> kodo.datatypes.Connect:
         default = kodo.service.controller.default_response(state)
         nodes = kodo.service.controller.build_registry(state)
@@ -78,8 +85,10 @@ class NodeConnector(kodo.service.controller.Controller):
         return kodo.datatypes.Connect(**default.model_dump(), nodes=nodes)
 
     @post("/connect",
-          summary="Connect",
-          description="Connect to registry as node/registry.")
+        summary="Establish Connection to Registry",
+        description="Connect a node or registry to the Kodosumi registry. Updates the registry state and synchronizes with peers if applicable.",
+        tags=["Connections", "Registry"],
+        response_model=Union[kodo.datatypes.Connect, kodo.datatypes.DefaultResponse])
     async def connect(
             self,
             state: State,
@@ -131,12 +140,17 @@ class NodeConnector(kodo.service.controller.Controller):
             return kodo.datatypes.Connect(**default.model_dump(), nodes=nodes)
         return default
 
-    @post("/disconnect")
+    @post("/disconnect",
+        summary="Disconnect from Registry",
+        description="Disconnects a provider or specific nodes from the Kodosumi registry and updates peers if necessary.",
+        tags=["Connections", "Registry"],
+        response_model=kodo.datatypes.DefaultResponse,
+        status_code=200)
     async def godown(
             self,
             state: State,
             request: Request,
-            data: kodo.datatypes.Disconnect) -> dict:
+            data: kodo.datatypes.Disconnect) -> kodo.datatypes.DefaultResponse:
         logger.info(f"/disconnect from {data.provider}")
         if data.provider in state.providers:
             provider = state.providers[data.provider]
@@ -173,13 +187,27 @@ class NodeConnector(kodo.service.controller.Controller):
                             logger.error(f"disconnect from {peer.url} failed")
         else:
             raise NotFoundException
-        return data.model_dump()
+        return kodo.service.controller.default_response(state)
 
-    @delete("/connect")
+    @delete("/connect",
+        summary="Disconnect All Active Connections",
+        description="Forcefully disconnects the node from all active connections in the Kodosumi registry.",
+        tags=["Connections", "Registry"],
+        status_code=204)
     async def disconnect(
             self,
             state: State,
             request: Request) -> None:
+        if not state.connection:
+            logger.info("No active connections to disconnect.")
+            return kodo.datatypes.DefaultResponse(
+                url=state.url,
+                registry=state.registry,
+                feed=state.feed,
+                idle=True,
+                now=helper.now(),
+                message=["No active connections to disconnect."]
+        )
         for url in state.connection.keys():
             try:
                 resp = httpx.post(
@@ -194,15 +222,47 @@ class NodeConnector(kodo.service.controller.Controller):
             except Exception as e:
                 logger.error(f"disconnect from {url} failed: {e}")
 
-    @post("/reconnect")
+        logger.info("Successfully disconnected from all connections.")
+        return kodo.datatypes.DefaultResponse(
+            url=state.url,
+            registry=state.registry,
+            feed=state.feed,
+            idle=True,
+            now=helper.now(),
+            message=["Successfully disconnected from all connections."]
+        )
+        
+    @post("/reconnect",
+        summary="Reconnect to Registry",
+        description="Reconnects a node or registry to the Kodosumi network by emitting a connection signal.",
+        tags=["Connections", "Registry"],
+        status_code=200)
     async def reconnect(
             self,
             state: State,
             request: Request,
-            data: kodo.datatypes.DefaultResponse) -> None:
-        kodo.service.signal.emit(request.app, "connect", data.url, state)
+            data: kodo.datatypes.DefaultResponse) -> kodo.datatypes.DefaultResponse:
+        logger.info(f"Reconnecting to registry at {data.url}")
+        try:
+            kodo.service.signal.emit(request.app, "connect", data.url, state)
+            return kodo.service.controller.default_response(state)
+        except Exception as e:
+            logger.error(f"Failed to reconnect to {data.url}: {e}")
+            return kodo.datatypes.DefaultResponse(
+                url=state.url,
+                registry=state.registry,
+                feed=state.feed,
+                idle=True,
+                now=helper.now(),
+                message=[f"Failed to reconnect to {data.url}: {e}"]
+            )
 
-    @post("/update")
+    @post("/update",
+        summary="Update Node Information",
+        description="Updates the node data in the Kodosumi registry and synchronizes the changes with peers if applicable.",
+        tags=["Connections", "Registry"],
+        response_model=kodo.datatypes.DefaultResponse,
+        status_code=200)
     async def update(
             self,
             state: State,
@@ -213,7 +273,7 @@ class NodeConnector(kodo.service.controller.Controller):
             raise NotFoundException()
         modified = helper.now()
         if data.url not in state.providers:
-            raise RuntimeError("unexpected system state [1]")
+            raise NotFoundException(detail=f"Provider {data.url} not found in the registry.")
         logger.info(f"update from {data.url} with {helper.stat(data.nodes)}")
         # shuffle in new node data
         for node in data.nodes:
@@ -233,16 +293,33 @@ class NodeConnector(kodo.service.controller.Controller):
             # peers update
             feed = kodo.datatypes.Connect(
                 **default.model_dump(), nodes=data.nodes)
+            MAX_RETRIES = 3
             for peer in state.providers.values():
                 if peer.feed and peer.url != data.url:
-                    logger.debug(
-                        f"broadcast /update to {peer.url} "
-                        f"with {helper.stat(feed.nodes)}")
-                    kodo.service.signal.emit(
-                        request.app, "update", peer.url, state, feed)
+                    for attempt in range(MAX_RETRIES):
+                        try:
+                            logger.debug(f"Attempt {attempt + 1}: broadcasting /update to {peer.url}")
+                            kodo.service.signal.emit(request.app, "update", peer.url, state, feed)
+                            break  # Exit loop if successful
+                        except Exception as e:
+                            logger.error(f"Attempt {attempt + 1} failed to update {peer.url}: {e}")
+                            if attempt == MAX_RETRIES - 1:
+                                logger.error(f"Max retries reached for {peer.url}. Giving up.")
         return default
 
-    @get("/flows")
+    @get("/flows",
+        summary="Retrieve Active Flows",
+        description=(
+         "Returns all active flows from nodes and providers in the Kodosumi registry. "
+         "Supports filtering, sorting, and pagination.\n\n"
+         "**Query Parameters:**\n"
+         "- `q` (str, optional): Filter flows by a search query.\n"
+         "- `by` (str, optional): Field to sort flows by.\n"
+         "- `pp` (int, default=10): Items per page for pagination.\n"
+         "- `p` (int, default=0): Page number for pagination.\n"
+         "- `format` (json or html, optional): Response format (JSON or HTML)."
+        ),
+        tags=["Monitoring", "Flows"])
     async def flows(
             self,
             state: State,
@@ -279,7 +356,10 @@ class NodeConnector(kodo.service.controller.Controller):
             "q": query
         })
 
-    @get("/counts")
+    @get("/counts",
+        summary="Retrieve Node and Flow Counts",
+        description="Provides total counts of nodes and flows grouped by organization and tags in the Kodosumi registry.",
+        tags=["Monitoring", "Statistics"])
     async def counts(
             self, 
             state: State, 

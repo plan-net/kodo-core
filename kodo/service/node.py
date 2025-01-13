@@ -8,7 +8,6 @@ import uvicorn
 from litestar import Litestar
 from litestar.datastructures import State
 from litestar.openapi.config import OpenAPIConfig
-from litestar.openapi.plugins import RedocRenderPlugin
 
 import kodo
 import kodo.datatypes
@@ -35,12 +34,7 @@ def create_app(**kwargs) -> Litestar:
             kodo.service.signal.reconnect
         ],
         state=state,
-        # openapi_config=OpenAPIConfig(
-        #     title="kodosumi API",
-        #     description="kodosumi mesh with registries, nodes, flows",
-        #     version=kodo.__version__,
-        #     render_plugins=[RedocRenderPlugin()],
-        # ),
+
         debug=False
     )
     kodo.log.identifier = state.url

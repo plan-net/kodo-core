@@ -5,7 +5,7 @@ from typing import Callable
 
 def now():
     # use this function for now to align on UTC
-    return datetime.datetime.utcnow()
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 def parse_factory(entry_point: str) -> Callable:
