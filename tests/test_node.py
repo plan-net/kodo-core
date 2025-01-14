@@ -393,6 +393,25 @@ async def test_query2():
 #         logger.info("This is an info message")
 #     assert "This is an info message" in caplog.text
 
+async def test_node_status():
+    node = Service(url="http://localhost:3370", registry=True, feed=True)
+    node.start()
+    resp = httpx.get(f"{node.url}/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["url"] == node.url
+    assert data["idle"] is True
+    node.stop()
+
+async def test_provider_map():
+    node = Service(url="http://localhost:3370", registry=True, feed=True)
+    node.start()
+    resp = httpx.get(f"{node.url}/map")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "providers" in data
+    assert "connection" in data
+    node.stop()
 
 async def test_connect():
     registry1 = Service(
@@ -579,7 +598,6 @@ async def test_nodes_disconnect():
     for service in (registry1, registry2, registry3, node1, node2, node3):
         service.stop()
 
-
 async def test_4registries(gimme=False):
     (
         registry1, registry2, registry3, 
@@ -687,6 +705,66 @@ async def test_registry1_off():
     for service in peers:
         service.stop()
 
+
+def test_mass_disconnect():
+    registry1 = Service(
+        url="http://localhost:3370", 
+        registry=True, 
+        feed=True,
+        cache_reset=True,
+        organization="registry1"
+    )
+    registry1.start()
+
+    registry2 = Service(
+        url="http://localhost:3371",
+        connect=[registry1.url],
+        registry=True, 
+        feed=True,
+        cache_reset=True,
+        organization="registry2"
+    )
+    registry2.start()
+
+    registry3 = Service(
+        url="http://localhost:3372",
+        connect=[registry2.url],
+        registry=True, 
+        feed=True,
+        cache_reset=True,
+        organization="registry3"
+    )
+    registry3.start()
+
+    node1 = Service(
+        url="http://localhost:3373",
+        connect=[registry3.url],
+        organization="node1",
+        registry=False,
+        feed=False,
+        cache_reset=True,
+        loader="tests.test_node:loader1"
+    )
+    node1.start()
+
+    time.sleep(20)
+    resp_before = httpx.get(f"{registry1.url}/connect")
+    assert resp_before.status_code == 200
+    assert len(resp_before.json()["nodes"]) > 0
+
+    resp = httpx.delete(f"{node1.url}/connect")
+    assert resp.status_code == 204
+    
+    time.sleep(20)
+
+    resp_after = httpx.get(f"{registry1.url}/connect")
+    assert resp_after.status_code == 200
+    assert len(resp_after.json()["nodes"]) == 0
+
+    registry1.stop()
+    registry2.stop()
+    registry3.stop()
+    node1.stop()
 
 async def test_cache():
     def mk_registry(**kwargs):

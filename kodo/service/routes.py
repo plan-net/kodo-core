@@ -45,23 +45,21 @@ class NodeConnector(kodo.service.controller.Controller):
         logger.info(f"shutdown now")
 
     @get("/",
-     summary="Node Status Overview",
-     description="Returns general state information about the Kodosumi registry or node, including startup time and status.",
-     tags=["Status", "Registry"],
-     response_model=kodo.datatypes.DefaultResponse)
+        summary="Node Status Overview",
+        description="Returns general state information about the Kodosumi registry or node, including startup time and status.",
+        tags=["Status", "Registry"],
+        response_model=kodo.datatypes.DefaultResponse)
     async def home(
             self,
             request: Request,
             state: State) -> kodo.datatypes.DefaultResponse:
-        default = kodo.service.controller.default_response(state)
-        logger.debug(f"return from home with status: {default.status}")
-        return default
+        return kodo.service.controller.default_response(state)
 
     @get("/map",
-         summary="Provider and Connection Map",
-         description="Provides detailed runtime data on registered providers, active connections, and node registers within the Kodosumi system.",
-         tags=["Monitoring", "Registry"],
-         response_model=kodo.datatypes.ProviderMap)
+        summary="Provider and Connection Map",
+        description="Provides detailed runtime data on registered providers, active connections, and node registers within the Kodosumi system.",
+        tags=["Monitoring", "Registry"],
+        response_model=kodo.datatypes.ProviderMap)
     async def get_map(self, state: State) -> kodo.datatypes.ProviderMap:
         default = kodo.service.controller.default_response(state).model_dump()
         default["providers"] = state.providers.values()
@@ -74,10 +72,10 @@ class NodeConnector(kodo.service.controller.Controller):
         return kodo.datatypes.ProviderMap(**default)
 
     @get("/connect",
-     summary="Registry Node Connections (Preview)",
-     description="Provides a preview of connected registry nodes and their current data within the Kodosumi system.",
-     tags=["Connections", "Registry"],
-     response_model=kodo.datatypes.Connect)
+        summary="Registry Node Connections (Preview)",
+        description="Provides a preview of connected registry nodes and their current data within the Kodosumi system.",
+        tags=["Connections", "Registry"],
+        response_model=kodo.datatypes.Connect)
     async def get_connect(self, state: State) -> kodo.datatypes.Connect:
         default = kodo.service.controller.default_response(state)
         nodes = kodo.service.controller.build_registry(state)
@@ -145,7 +143,7 @@ class NodeConnector(kodo.service.controller.Controller):
         description="Disconnects a provider or specific nodes from the Kodosumi registry and updates peers if necessary.",
         tags=["Connections", "Registry"],
         response_model=kodo.datatypes.DefaultResponse,
-        status_code=200)
+        status_code=201)
     async def godown(
             self,
             state: State,
@@ -169,6 +167,7 @@ class NodeConnector(kodo.service.controller.Controller):
                     logger.info(
                         f"removed nodes: {before - len(provider.nodes)}")
             kodo.worker.loader.Loader.save_to_cache(state)
+            logger.debug(f"{state.feed}")
             if state.feed:
                 for peer in state.providers.values():
                     if peer.feed and peer.url != data.provider:
@@ -193,21 +192,22 @@ class NodeConnector(kodo.service.controller.Controller):
         summary="Disconnect All Active Connections",
         description="Forcefully disconnects the node from all active connections in the Kodosumi registry.",
         tags=["Connections", "Registry"],
-        status_code=204)
+        status_code=204
+        )
     async def disconnect(
             self,
             state: State,
             request: Request) -> None:
-        if not state.connection:
-            logger.info("No active connections to disconnect.")
-            return kodo.datatypes.DefaultResponse(
-                url=state.url,
-                registry=state.registry,
-                feed=state.feed,
-                idle=True,
-                now=helper.now(),
-                message=["No active connections to disconnect."]
-        )
+        # if not state.connection:
+        #     logger.info("No active connections to disconnect.")
+        #     return kodo.datatypes.DefaultResponse(
+        #         url=state.url,
+        #         registry=state.registry,
+        #         feed=state.feed,
+        #         idle=True,
+        #         now=helper.now(),
+        #         message=["No active connections to disconnect."]
+        # )
         for url in state.connection.keys():
             try:
                 resp = httpx.post(
@@ -216,6 +216,7 @@ class NodeConnector(kodo.service.controller.Controller):
                         provider=state.url,
                         url=[state.url]).model_dump(),
                     timeout=None)
+                logger.debug(resp.status_code)
                 if resp.status_code != HTTP_201_CREATED:
                     logger.error(
                         f"disconnect from {url} failed: {resp.json()}")
@@ -223,14 +224,6 @@ class NodeConnector(kodo.service.controller.Controller):
                 logger.error(f"disconnect from {url} failed: {e}")
 
         logger.info("Successfully disconnected from all connections.")
-        return kodo.datatypes.DefaultResponse(
-            url=state.url,
-            registry=state.registry,
-            feed=state.feed,
-            idle=True,
-            now=helper.now(),
-            message=["Successfully disconnected from all connections."]
-        )
         
     @post("/reconnect",
         summary="Reconnect to Registry",
