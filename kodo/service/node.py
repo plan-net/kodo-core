@@ -8,7 +8,7 @@ import uvicorn
 from litestar import Litestar
 from litestar.datastructures import State
 from litestar.openapi.config import OpenAPIConfig
-from litestar.openapi.plugins import RedocRenderPlugin
+from litestar.openapi.plugins import SwaggerRenderPlugin
 
 import kodo
 import kodo.datatypes
@@ -25,6 +25,13 @@ DEFAULT_LOADER = "kodo.worker.loader:default_loader"
 def create_app(**kwargs) -> Litestar:
     loader = kodo.worker.loader.Loader()
     state = loader.load()
+    oconf = OpenAPIConfig(
+            title="kodosumi API",
+            description="kodosumi mesh with registries, nodes, flows",
+            version=kodo.__version__,
+            path="docs",
+            render_plugins=[SwaggerRenderPlugin()],
+        ) if os.getenv("OPENAPI_UI", False) else None
     app = Litestar(
         route_handlers=[NodeConnector],
         on_startup=[NodeConnector.startup],
@@ -35,13 +42,8 @@ def create_app(**kwargs) -> Litestar:
             kodo.service.signal.reconnect
         ],
         state=state,
-        # openapi_config=OpenAPIConfig(
-        #     title="kodosumi API",
-        #     description="kodosumi mesh with registries, nodes, flows",
-        #     version=kodo.__version__,
-        #     render_plugins=[RedocRenderPlugin()],
-        # ),
-        debug=False
+        openapi_config=oconf,
+        debug=True
     )
     kodo.log.identifier = state.url
     kodo.log.setup_logger(
