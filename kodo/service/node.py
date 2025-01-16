@@ -8,6 +8,7 @@ import uvicorn
 from litestar import Litestar
 from litestar.datastructures import State
 from litestar.openapi.config import OpenAPIConfig
+from litestar.openapi.plugins import SwaggerRenderPlugin
 
 import kodo
 import kodo.datatypes
@@ -34,9 +35,17 @@ def create_app(**kwargs) -> Litestar:
             kodo.service.signal.reconnect
         ],
         state=state,
+        openapi_config=OpenAPIConfig(
+            title="Kodosumi API",
+            description="API documentation for the Kodosumi protocol.",
+            version="0.0.1",
+            render_plugins=[SwaggerRenderPlugin()],
+        ),
+
 
         debug=False
     )
+
     kodo.log.identifier = state.url
     kodo.log.setup_logger(
         log_file=state.log_file,

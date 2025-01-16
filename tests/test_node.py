@@ -394,7 +394,7 @@ async def test_query2():
 #     assert "This is an info message" in caplog.text
 
 async def test_node_status():
-    node = Service(url="http://localhost:3370", registry=True, feed=True)
+    node = Service(url="http://localhost:3370", registry=False, feed=False)
     node.start()
     resp = httpx.get(f"{node.url}/")
     assert resp.status_code == 200
@@ -402,6 +402,16 @@ async def test_node_status():
     assert data["url"] == node.url
     assert data["idle"] is True
     node.stop()
+
+async def test_registry_status():
+    registry = Service(url="http://localhost:3370", registry=True, feed=True)
+    registry.start()
+    resp = httpx.get(f"{registry.url}/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["url"] == registry.url
+    assert data["idle"] is True
+    registry.stop()
 
 async def test_provider_map():
     node = Service(url="http://localhost:3370", registry=True, feed=True)
@@ -492,6 +502,28 @@ async def test_connect():
     registry2.stop()
     node.stop()
     node1.stop()
+
+# def test_reconnect():
+#     registry = Service(
+#         url="http://localhost:3370", 
+#         registry=True, 
+#         feed=False,
+#         cache_reset=True
+#     )
+#     registry.start()
+#     node = Service(
+#         url="http://localhost:3371", 
+#         registry=False, 
+#         feed=False, 
+#         connect=[registry.url],
+#         cache_reset=True
+#     )
+#     node.start()
+#     httpx.delete(f"{node.url}/connect")
+#     resp = httpx.post(f"{node.url}/reconnect")#, json={"url": [registry.url]})
+#     assert resp.status_code == 200
+#     registry.stop()
+#     node.stop()
 
 async def _3registries():
     registry3 = Service(

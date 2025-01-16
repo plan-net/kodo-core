@@ -4,6 +4,10 @@
 
 The kodosumi framework is under development.pip 
 
+### kodosumi api documentation
+
+The Swagger UI is reachable via the /schema endpoint
+
 ## Setup
 
     cd ~
