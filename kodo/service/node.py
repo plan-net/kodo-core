@@ -37,7 +37,7 @@ def create_app(**kwargs) -> Litestar:
         state=state,
         openapi_config=OpenAPIConfig(
             title="Kodosumi API",
-            description="API documentation for the Kodosumi protocol.",
+            description="API documentation for the Kodosumi mesh.",
             version="0.0.1",
             render_plugins=[SwaggerRenderPlugin()],
         ),
