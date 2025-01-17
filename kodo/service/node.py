@@ -41,9 +41,7 @@ def create_app(**kwargs) -> Litestar:
             version=kodo.__version__,
             render_plugins=[SwaggerRenderPlugin()],
             path='/docs',
-        ),
-
-
+        ) if os.getenv("OPENAPI_UI", False) else None,
         debug=False
     )
 
