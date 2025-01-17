@@ -41,7 +41,7 @@ def create_app(**kwargs) -> Litestar:
             version=kodo.__version__,
             render_plugins=[SwaggerRenderPlugin()],
             path='/docs',
-        ) if os.getenv("OPENAPI_UI", False) else None,
+        ),  # if os.getenv("OPENAPI_UI", False) else None,
         debug=False
     )
 
@@ -106,6 +106,7 @@ def run_service(**kwargs) -> None:
         factory=True,
         log_config={"version": 1,  "loggers": {}}
     )
+
 
 if __name__ == "__main__":
     run_service(reload=True)
