@@ -1,4 +1,5 @@
 import datetime
+import os
 import signal
 import sys
 from typing import List, Literal, Optional, Union
@@ -21,19 +22,14 @@ import kodo
 import kodo.helper as helper
 import kodo.service.controller
 import kodo.service.signal
-from kodo.datatypes import MODE
 import kodo.worker.loader
 from kodo.worker.act import FlowAction
 from kodo.datatypes import (IPCresult, WorkerMode, DefaultResponse, 
                             ProviderMap, Connect, Provider, Disconnect, 
-                            NodeInfo)
+                            NodeInfo, MODE)
 from kodo.log import logger
 from kodo.service.flow import build_df, filter_df, sort_df, flow_welcome_url
 
-
-def signal_handler(signal, frame):
-    print(f' -- interrupt triggers shutdown')
-    sys.exit(4)
 
 
 class NodeConnector(kodo.service.controller.Controller):
@@ -44,26 +40,44 @@ class NodeConnector(kodo.service.controller.Controller):
         app.state.started_at = helper.now()
         for url in app.state.connection:
             kodo.service.signal.emit(app, "connect", url, app.state)
+        message: str
         if app.state.registry:
             for provider in app.state.providers.values():
                 kodo.service.signal.emit(
                     app, "reconnect", provider.url, app.state)
-            logger.info(
-                f"registry startup complete (feed is {app.state.feed})")
+            message = f"registry (feed is {app.state.feed})"
         else:
-            logger.info("node startup complete")
+            message = f"node"
+        logger.info(
+            f"{message} startup complete "
+            f"(pid {os.getpid()}, ppid {os.getppid()})")
+
+        original_handler = signal.getsignal(signal.SIGINT)
+
+        def signal_handler(signal, frame):
+            # print(f' -- interrupt triggers shutdown')
+            app.state.exit = True
+            if original_handler:
+                original_handler(signal, frame)
+
         signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
 
     @staticmethod
     def shutdown(app: Litestar) -> None:
         logger.info(f"shutdown now")
+
+    @delete("/kill")
+    async def kill(self) -> None:
+        logger.debug(f"received SIGHUP, killing me")
+        os.kill(os.getpid(), signal.SIGTERM)
 
     @get("/",
          summary="Node Status Overview",
          description=("Returns general state information about the Kodosumi "
                       "registry or node, including startup time and status."),
          tags=["Status", "Registry", "Node"],
-         response_model=kodo.datatypes.DefaultResponse)
+         response_model=DefaultResponse)
     async def home(
             self,
             request: Request,
@@ -75,17 +89,19 @@ class NodeConnector(kodo.service.controller.Controller):
          description=("Provides detailed runtime data on registered providers, active "
                       "connections, and node registers within the Kodosumi system."),
          tags=["Monitoring", "Registry", "Node"],
-         response_model=kodo.datatypes.ProviderMap,
+         response_model=ProviderMap,
          status_code=HTTP_200_OK)
     async def get_map(self, state: State) -> ProviderMap:
         default = kodo.service.controller.default_response(state).model_dump()
         default["providers"] = state.providers.values()
         default["connection"] = state.connection
         default["registers"] = state.registers
+        active_registers = sum([1 for r in state.registers.values() if r])
+        active_connection = sum([1 for c in state.connection.values() if c])
         logger.debug(
             f"return /map providers: {len(state.providers.values())}, "
-            f"registers: {len(state.registers)}, "
-            f"and connection: {len(state.connection)}")
+            f"registers: {active_registers}/{len(state.registers)}, "
+            f"connection: {active_connection}/{len(state.connection)}")
         return ProviderMap(**default)
 
     @get("/connect",
@@ -93,7 +109,7 @@ class NodeConnector(kodo.service.controller.Controller):
          description=("Provides a preview of connected registry nodes "
                       "and their current data within the Kodosumi system."),
          tags=["Connections", "Registry", "Node"],
-         response_model=kodo.datatypes.Connect,
+         response_model=Connect,
          status_code=HTTP_200_OK)
     async def get_connect(self, state: State) -> Connect:
         default = kodo.service.controller.default_response(state)
@@ -101,15 +117,14 @@ class NodeConnector(kodo.service.controller.Controller):
         nodes = kodo.service.controller.build_registry(state)
         logger.debug(f"Returning /connect with {helper.stat(nodes)}")
 
-        return kodo.datatypes.Connect(**default.model_dump(), nodes=nodes)
+        return Connect(**default.model_dump(), nodes=nodes)
 
     @post("/connect",
           summary="Establish Connection to Registry",
           description=("Connect a node or registry to a Kodosumi registry. "
                        "Updates the registry state and synchronizes with peers if applicable."),
           tags=["Connections", "Registry", "Node"],
-          response_model=Union[kodo.datatypes.Connect,
-                               kodo.datatypes.DefaultResponse],
+          response_model=Union[Connect, DefaultResponse],
           status_code=HTTP_200_OK)
     async def connect(
             self,
@@ -131,7 +146,7 @@ class NodeConnector(kodo.service.controller.Controller):
         else:
             created = modified
             logger.info(f"Registering new provider {data.url}")
-        provider = kodo.datatypes.Provider(
+        provider = Provider(
             url=data.url,
             organization=data.organization,
             feed=data.feed,
@@ -169,7 +184,7 @@ class NodeConnector(kodo.service.controller.Controller):
           summary="Disconnect from Registry",
           description="Disconnects a provider or specific nodes from a registry and updates peers if necessary.",
           tags=["Connections", "Registry", "Node"],
-          response_model=kodo.datatypes.DefaultResponse,
+          response_model=DefaultResponse,
           status_code=HTTP_200_OK)
     async def godown(
             self,
@@ -206,7 +221,7 @@ class NodeConnector(kodo.service.controller.Controller):
                     try:
                         resp = httpx.post(
                             f"{peer.url}/disconnect",
-                            json=kodo.datatypes.Disconnect(
+                            json=Disconnect(
                                 provider=state.url,
                                 url=data.url).model_dump(),
                             timeout=None)
@@ -258,7 +273,7 @@ class NodeConnector(kodo.service.controller.Controller):
             self,
             state: State,
             request: Request,
-            data: kodo.datatypes.DefaultResponse) -> DefaultResponse:
+            data: DefaultResponse) -> DefaultResponse:
         kodo.service.signal.emit(request.app, "connect", data.url, state)
         logger.info(f"Successfully reconnected to {data.url}")
         return kodo.service.controller.default_response(state)
@@ -267,7 +282,7 @@ class NodeConnector(kodo.service.controller.Controller):
           summary="Update Node Information",
           description="Updates the node data in a registry and synchronizes the changes with peers if applicable.",
           tags=["Connections", "Registry"],
-          response_model=kodo.datatypes.DefaultResponse,
+          response_model=DefaultResponse,
           status_code=HTTP_200_OK)
     async def update(
             self,
@@ -428,18 +443,19 @@ class NodeConnector(kodo.service.controller.Controller):
         ipc = FlowAction(flow.entry, state.exec_data)
         ret = ipc.enter(mode, data)
         t = helper.now() - t0
-        logger.debug(
+        logger.info(
             f"{mode} `{flow.name}` ({flow.entry}), "
             f"bootup in {t}: {'OK' if ret.returncode == 0 else 'ERROR'}")
         if ret.returncode == 0:
             if ret.fid:
                 t0 = helper.now()
-                ipc.run()
+                proc = ipc.run()
                 template_file = "launch.html"
                 status = HTTP_201_CREATED
                 t = helper.now() - t0
                 logger.info(
-                    f"{mode} `{flow.name}` ({flow.entry}) in {t}: {ret.fid}")
+                    f"{mode} `{flow.name}` ({flow.entry}) in {t}: {ret.fid}, "
+                    f"pid: {proc.pid}")
             else:
                 status = HTTP_200_OK
                 template_file = "enter.html"
@@ -454,8 +470,9 @@ class NodeConnector(kodo.service.controller.Controller):
                 "result": ret,
                 "flow": flow,
                 "node": node,
-                "url": flow_welcome_url(node.url, flow.url)
-            },
+                "url": flow_welcome_url(node.url, flow.url),
+                "exec_path": ipc.exec_path,
+                "event_log": ipc.event_log},
             status_code=status)
 
     @post("/flows/{path:path}")
@@ -481,7 +498,8 @@ class NodeConnector(kodo.service.controller.Controller):
                     "success": bool(ret.context["result"].fid),
                     # "result": ret.context["result"].model_dump(),
                     "node": ret.context["node"].model_dump(),
-                    "url": ret.context["url"]
+                    "url": ret.context["url"],
+                    "event_log": ret.context["event_log"],
                 }, media_type=MediaType.JSON)
         return ret
 

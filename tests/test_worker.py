@@ -207,4 +207,9 @@ async def test_ray_startup(tmp_path):
     assert resp.json()["returncode"] == 0
     assert resp.json()["success"]
     assert resp.json()["fid"] is not None
+    import time
+    while True:
+        if '"status":"finished"' in open(resp.json()["event_log"], "r").read():
+            break
+        time.sleep(1)
     node.stop()
