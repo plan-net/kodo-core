@@ -132,6 +132,7 @@ class Loader:
             "exec_data": None,
             "timeout": None,
             "retry": None,
+            "ray": None,
             # runtime:
             "registers": {},
             "flows": {},

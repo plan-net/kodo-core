@@ -31,7 +31,8 @@ def default_response(
         "started_at": state.started_at,
         "idle": state.event == 0,
         "now": helper.now(),
-        "message": message
+        "message": message,
+        "ray": state.ray
     })
 
 

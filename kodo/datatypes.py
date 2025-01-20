@@ -23,6 +23,7 @@ class Option(BaseSettings):
 
     TIMEOUT: Optional[int] = 30
     RETRY: Optional[int] = 9
+    RAY: Optional[bool] = False
 
     @field_validator('URL', mode='before')
     def url_to_str(cls, v):
@@ -84,6 +85,7 @@ class DefaultResponse(BaseModel):
     idle: bool
     now: datetime.datetime
     message: List[str]
+    ray: bool
 
 
 class Flow(BaseModel):

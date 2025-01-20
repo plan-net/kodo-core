@@ -22,13 +22,15 @@ def cli():
 @click.option("-d", "--cache-file", help="cache file")
 @click.option("-r", "--reload", is_flag=True, default=False,
               help="reload mode")
+@click.option("-y", "--ray", is_flag=True, default=False,
+              help="use ray for parallel processing, defaults to 'threading'")
 @click.option(
     "-l", "--level", type=click.Choice(
         ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'FATAL'],
         case_sensitive=False), default="INFO", help="Log output level")
 def service(
         loader, url, organization, connect, registry, feed, reset,
-        cache_file, reload, level):
+        cache_file, reload, level, ray):
     """Start the kodosumi service."""
     run_service(
         loader=loader,
@@ -41,6 +43,7 @@ def service(
         cache_reset=reset,
         reload=reload,
         screen_level=level,
+        ray=ray
     )
 
 
