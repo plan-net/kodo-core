@@ -1,0 +1,87 @@
+import base64
+import os
+import sys
+from subprocess import DEVNULL, Popen
+from typing import Any, Generator, Optional, Union
+
+from bson import ObjectId
+from litestar.datastructures import FormMultiDict, UploadFile
+
+import kodo.error
+from kodo import helper
+from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode
+from kodo.common import Launch
+from kodo.worker.loader import FlowDiscovery
+from kodo.worker.base import IPC_MODULE
+from kodo.worker.base import EVENT_STREAM
+
+
+class FlowAction(FlowDiscovery):
+
+    def build_form(self, data: FormMultiDict) -> Generator[str, None, None]:
+        if data:
+            for key, value in data.items():
+                if isinstance(value, UploadFile):
+                    value.file.seek(0)
+                    content = value.file.read()
+                    value.file.close()
+                    value = {
+                        "filename": value.filename,
+                        "content_type": value.content_type,
+                        "content": base64.b64encode(content).decode()
+                    }
+                yield "form: " + IPCinput(
+                    key=key, value=value).model_dump_json()
+
+    # def _mk_fid(self, fid: str) -> Generator[str, None, None]:
+    #     yield "form: " + IPCinput(key="fid", value=fid).model_dump_json()
+
+    def run(self):
+        # takes place on the node
+        # creates the detached worker process to execute the flow
+        event_data = self.exec_path.joinpath(str(self.fid))
+        self.event_log = event_data.joinpath(EVENT_STREAM)
+        self.event("data", status="pending")
+        environ = os.environ.copy()
+        process = Popen(
+            [sys.executable, "-m", IPC_MODULE, MODE.EXECUTE, self.factory,
+             self.exec_path, self.fid], stdout=DEVNULL, stderr=DEVNULL, 
+             env=environ, preexec_fn=os.setsid)
+
+    def communicate(self, mode: Union[WorkerMode, str]) -> None:
+        # is executed in the worker subprocess
+        # import tempfile
+        if self.factory is None:
+            return
+        flow: Any = helper.parse_factory(self.factory)
+        data = self.parse_form_data()
+        callback = flow.get_register("enter")
+        ret = callback(data, mode)
+        if isinstance(ret, Launch):
+            if mode == MODE.LAUNCH:
+                self.create_flow(ret.inputs)
+                self.write_msg(str(self.fid), "launch")
+        elif isinstance(ret, str):
+            for line in ret.split("\n"):
+                self.write_msg(line)
+        else:
+            raise kodo.error.ImplementationError(
+                f"{mode} must return str, got {ret.__class__.__name__}")
+
+    def enter(
+            self,
+            mode: WorkerMode,
+            data: Optional[FormMultiDict] = None) -> IPCresult:
+        ret = self.parse_msg(mode, data, self.build_form)
+        return ret
+
+    def create_flow(self, inputs: Optional[dict] = None):
+        # takes place on the node
+        # creates the fid, log folder, and event stream, state _starting_
+        inputs = inputs or {}
+        fid = ObjectId()
+        self.create_event_stream(str(fid))
+        self.event("data", version=kodo.__version__, entry_point=self.factory,
+                     fid=str(self.fid))
+        self.event("data", inputs=inputs or {})
+

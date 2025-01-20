@@ -1,17 +1,11 @@
-import asyncio
-from typing import Optional
-
 import httpx
 from litestar.datastructures import State
 from litestar.events import listener
-from litestar.exceptions import NotFoundException
-from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
-                                   HTTP_404_NOT_FOUND)
+from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 
-import kodo.datatypes
 import kodo.helper as helper
 import kodo.service.controller
-import kodo.service.signal
+from kodo.datatypes import Connect, Provider
 from kodo.log import logger
 
 
@@ -51,20 +45,19 @@ async def connect(url, state) -> None:
     nodes = kodo.service.controller.build_registry(state)
     logger.info(f"{url}/connect with {helper.stat(nodes)}")
     resp = await send(
-        f"{url}/connect", 
-        data=kodo.datatypes.Connect(
-            **default.model_dump(), nodes=nodes).model_dump_json(),
+        f"{url}/connect",
+        data=Connect(**default.model_dump(), nodes=nodes).model_dump_json(),
         retry=state.retry,
         timeout=state.timeout)
     state.connection[url] = helper.now()
     if state.feed:
-        feedback = kodo.datatypes.Connect(**resp)
+        feedback = Connect(**resp)
         modified = helper.now()
         if feedback.url in state.providers:
             created = state.providers[feedback.url].created
         else:
             created = modified
-        provider = kodo.datatypes.Provider(
+        provider = Provider(
             url=feedback.url,
             organization=feedback.organization,
             feed=feedback.feed,
@@ -74,7 +67,7 @@ async def connect(url, state) -> None:
         )
         state.providers[provider.url] = provider
         logger.info(f"feedback from {feedback.url} with {helper.stat(nodes)}")
-    kodo.service.signal.release(state)
+    release(state)
     logger.debug(f"{url}/connect complete")
 
 
@@ -82,13 +75,13 @@ async def connect(url, state) -> None:
 async def update(
         url: str,
         state: State,
-        record: kodo.datatypes.Connect) -> None:
+        record: Connect) -> None:
     logger.debug(f"update to {url} on {record.url}")
     resp = await send(
-        f"{url}/update", 
+        f"{url}/update",
         data=record.model_dump_json(),
         timeout=state.timeout)
-    kodo.service.signal.release(state)
+    release(state)
     logger.debug(f"{url}/update complete")
 
 
@@ -99,9 +92,9 @@ async def reconnect(url, state: State) -> None:
     default = kodo.service.controller.default_response(state)
     default.message.append(f"please reconnect")
     resp = await send(
-        f"{url}/reconnect", 
+        f"{url}/reconnect",
         data=default.model_dump_json(),
         retry=state.retry,
         timeout=state.timeout)
-    kodo.service.signal.release(state)
+    release(state)
     logger.debug(f"{url}/reconnect complete")

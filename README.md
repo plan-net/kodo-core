@@ -2,7 +2,11 @@
 
 ## kodosumi core package
 
-The kodosumi framework is under development.pip 
+The kodosumi framework is under development.
+
+### kodosumi api documentation
+
+The Swagger UI is reachable via the /docs endpoint
 
 ### kodosumi api documentation
 
@@ -39,3 +43,5 @@ Open up file `~/Project/kodo-core/.env` and define environment variables:
     LITELLM_LOG=WARNING
 
 Run tests after `pip install .[tests]` with `pytest -v`.
+
+For examples see folder `tests`. You need to install _jupyter_ with `pip install jupyter` to run the examples.

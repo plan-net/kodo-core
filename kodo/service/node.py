@@ -1,18 +1,14 @@
-import json
-import os
 import urllib
 from pathlib import Path
-from typing import Callable, List, Optional, Union
 
 import uvicorn
 from litestar import Litestar
-from litestar.datastructures import State
+from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
+from litestar.static_files import create_static_files_router
+from litestar.template.config import TemplateConfig
 
-import kodo
-import kodo.datatypes
-import kodo.helper
 import kodo.log
 import kodo.service.signal
 import kodo.worker.loader
@@ -26,7 +22,12 @@ def create_app(**kwargs) -> Litestar:
     loader = kodo.worker.loader.Loader()
     state = loader.load()
     app = Litestar(
-        route_handlers=[NodeConnector],
+        route_handlers=[
+            NodeConnector,
+            create_static_files_router(
+                path="/static",
+                directories=[Path(__file__).parent / "static"])
+        ],
         on_startup=[NodeConnector.startup],
         on_shutdown=[NodeConnector.shutdown],
         listeners=[
@@ -35,6 +36,9 @@ def create_app(**kwargs) -> Litestar:
             kodo.service.signal.reconnect
         ],
         state=state,
+        template_config=TemplateConfig(
+            directory=Path(__file__).parent / "templates",
+            engine=JinjaTemplateEngine),
         openapi_config=OpenAPIConfig(
             title="Kodosumi API",
             description="API documentation for the Kodosumi mesh.",
@@ -51,6 +55,9 @@ def create_app(**kwargs) -> Litestar:
         log_file_level=state.log_file_level,
         screen_level=state.screen_level
     )
+    while state.log_queue:
+        level, message = state.log_queue.pop(0)
+        logger.log(level, message)
     logger.info(
         f"startup with flows: {len(state.flows)}, "
         f"providers: {len(state.providers)}, "

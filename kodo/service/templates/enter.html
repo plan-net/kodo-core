@@ -1,0 +1,23 @@
+{% extends "_main.html" %}
+
+{% block header %}
+    <h1>
+        {{flow.name}}
+    </h1>
+    <p>
+        {{flow.description}}
+    </p>
+{% endblock %}
+
+{% block content %}
+    <form method="POST" enctype="multipart/form-data">
+        {{result.content | safe}}
+    </form>
+{% endblock %}
+
+{% block footer %}
+    <p>
+        {{flow.author}}<br/>
+        {{node.organization}}
+    </p>
+{% endblock %}

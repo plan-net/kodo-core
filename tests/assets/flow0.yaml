@@ -1,0 +1,139 @@
+- url: http://localhost:3367
+- organization: Plan.Net Gruppe für digitale Kommunikation GmbH & Co. KG
+- registry: false
+- feed: false
+- screen_level: debug
+- flows:
+  - entry: tests.test:flow
+    url: /flow2
+    name: flow2
+    description: flow2 description
+  - entry: tests.test:flow
+    author: m.rau@house-of-communication.com
+    tags:
+      - test
+      - default
+  - author: tom.hanks@example.com
+    description: Stealth operations expert
+    name: Agent Alpha
+    tags:
+    - stealth
+    - operations
+    url: /agent-alpha
+  - author: meryl.streep@example.com
+    description: Tactical strategist
+    name: Agent Bravo
+    tags:
+    - tactical
+    - strategy
+    url: /agent-bravo
+  - author: leonardo.dicaprio@example.com
+    description: Cybersecurity specialist
+    name: Agent Charlie
+    tags:
+    - cybersecurity
+    - tech
+    url: /agent-charlie
+  - author: scarlett.johansson@example.com
+    description: Undercover operative
+    name: Agent Delta
+    tags:
+    - undercover
+    - operative
+    url: /agent-delta
+  - author: denzel.washington@example.com
+    description: Communications expert
+    name: Agent Echo
+    tags:
+    - communications
+    - expert
+    url: /agent-echo
+  - author: julia.roberts@example.com
+    description: Field medic
+    name: Agent Foxtrot
+    tags:
+    - medic
+    - field
+    url: /agent-foxtrot
+  - author: tom.hanks@example.com
+    description: Weapons specialist
+    name: Agent Golf
+    tags:
+    - weapons
+    - specialist
+    url: /agent-golf
+  - author: meryl.streep@example.com
+    description: Intelligence analyst
+    name: Agent Hotel
+    tags:
+    - intelligence
+    - analyst
+    url: /agent-hotel
+  - author: leonardo.dicaprio@example.com
+    description: Infiltration expert
+    name: Agent India
+    tags:
+    - infiltration
+    - expert
+    url: /agent-india
+  - author: scarlett.johansson@example.com
+    description: Negotiation specialist
+    name: Agent Juliet
+    tags:
+    - negotiation
+    - specialist
+    url: /agent-juliet
+  - author: denzel.washington@example.com
+    description: ''
+    name: Agent Without Description
+    tags:
+    - surveillance
+    - expert
+    url: /agent-kilo
+  - author: julia.roberts@example.com
+    description: Logistics coordinator
+    name: Agent Lima
+    tags:
+    - logistics
+    - coordinator
+    url: /agent-lima
+  - author: ''
+    description: Explosives expert
+    name: Agent Without Author
+    tags:
+    - explosives
+    - expert
+    url: /agent-mike
+  - author: meryl.streep@example.com
+    description: Reconnaissance specialist
+    name: Agent November
+    tags:
+    - reconnaissance
+    - specialist
+    url: /agent-november
+  - author: leonardo.dicaprio@example.com
+    description: Operations planner
+    name: Agent Oscar
+    tags:
+    - operations
+    - planner
+    url: /agent-oscar
+  - author: scarlett.johansson@example.com
+    description: Psychological profiler
+    name: Agent Papa No Tags
+    tags: []
+    url: /agent-papa
+  - author: denzel.washington@example.com
+    description: Encryption expert
+    name: Agent Quebec
+    tags:
+    - encryption
+    - expert
+    url: /agent-quebec
+  - author: julia.roberts@example.com
+    description: Rescue operations
+    name: Agent Romeo
+    tags:
+    - rescue
+    - operations
+    url: /agent-romeo

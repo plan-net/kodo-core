@@ -1,9 +1,16 @@
-from typing import Optional
 import re
+from typing import Optional
+
 import pandas as pd
 from litestar.datastructures import State
 
 from kodo.service.controller import build_registry
+
+
+def flow_welcome_url(node: str, flow: str) -> str:
+    node = node[:-1] if node.endswith("/") else node
+    flow = flow[1:] if flow.startswith("/") else flow
+    return f"{node}/flows/{flow}"
 
 
 def build_df(state: State) -> pd.DataFrame:
@@ -12,13 +19,11 @@ def build_df(state: State) -> pd.DataFrame:
         data = node.model_dump()
         host = data.pop("url")
         for flow in data["flows"]:
-            flow["url"] = f"{host}/flows{flow["url"]}"
+            flow["url"] = flow_welcome_url(host, flow["url"])
             records.append({**data, **flow})
-    columns = [
-        "organization", "created", "modified", "heartbeat", "url", "name", 
-        "author", "description", "tags"
-    ]
-    return pd.DataFrame(records, columns=columns)
+    COLUMNS = ["name", "description", "organization", "author", "tags",
+               "created", "modified", "heartbeat", "url"]
+    return pd.DataFrame(records, columns=COLUMNS)
 
 
 def sort_df(df: pd.DataFrame, by: Optional[str] = None) -> pd.DataFrame:
@@ -55,13 +60,15 @@ def sort_df(df: pd.DataFrame, by: Optional[str] = None) -> pd.DataFrame:
 def filter_df(df: pd.DataFrame, q: Optional[str] = None) -> pd.DataFrame:
     if q:
         fdf = df.copy().fillna("")
+
         def tag(t):
             return fdf.index.isin(
                 fdf.explode("tags")[(fdf.explode("tags").tags == t)].index)
+
         try:
             q = re.sub(
-                r'(\w+)\s*~\s*(\".+?\")', 
-                '(\\1.str.lower().str.contains(\\2.lower()) == True)', 
+                r'(\w+)\s*~\s*(\".+?\")',
+                '(\\1.str.lower().str.contains(\\2.lower()) == True)',
                 q)
             fdf = fdf.query(q)
             query = q

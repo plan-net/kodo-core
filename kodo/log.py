@@ -1,6 +1,5 @@
 import logging
 
-
 original_factory = logging.getLogRecordFactory()
 identifier = None
 logger = logging.getLogger("kodo")  # Set the custom factory

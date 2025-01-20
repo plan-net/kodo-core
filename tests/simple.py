@@ -2,8 +2,7 @@ from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 import datetime
 
-from kodo.worker.loader import publish
-import kodo.interrupt
+from kodo.common import publish, Launch
 
 
 # llm = ChatOpenAI(model="ollama/phi3:3.8b", base_url="http://localhost:11434")
@@ -67,11 +66,11 @@ flow = publish(
     description="Create a short hymn based on a given topic."
 )
 
-@flow.welcome
+@flow.enter
 async def landing_page(form):
     if topic:=form.get("topic"):
         if topic.strip():
-            raise kodo.interrupt.LaunchFlow(topic=topic.strip())
+            return Launch(topic=topic.strip())
     return """
         <h2>
             hello world
@@ -80,10 +79,6 @@ async def landing_page(form):
         <input type="text" name="topic" placeholder="Enter a topic">
         <input type="submit" value="GO FOR IT">
     """
-
-@flow.enter
-async def enter(form):
-    pass
 
 
 if __name__ == "__main__":

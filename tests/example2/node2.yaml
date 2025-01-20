@@ -1,0 +1,356 @@
+- url: http://localhost:3372
+- organization: Mediaplus
+- connect:
+  - http://localhost:3370
+- registry: false
+- feed: false
+- screen_level: info
+- flows:
+  - author: tom.hanks@example.com
+    description: Stealth operations expert
+    name: Agent Alpha
+    tags:
+    - stealth
+    - operations
+    url: /agent-alpha
+  - author: meryl.streep@example.com
+    description: Tactical strategist
+    name: Agent Bravo
+    tags:
+    - tactical
+    - strategy
+    url: /agent-bravo
+  - author: leonardo.dicaprio@example.com
+    description: Cybersecurity specialist
+    name: Agent Charlie
+    tags:
+    - cybersecurity
+    - tech
+    url: /agent-charlie
+  - author: scarlett.johansson@example.com
+    description: Undercover operative
+    name: Agent Delta
+    tags:
+    - undercover
+    - operative
+    url: /agent-delta
+  - author: denzel.washington@example.com
+    description: Communications expert
+    name: Agent Echo
+    tags:
+    - communications
+    - expert
+    url: /agent-echo
+  - author: julia.roberts@example.com
+    description: Field medic
+    name: Agent Foxtrot
+    tags:
+    - medic
+    - field
+    url: /agent-foxtrot
+  - author: tom.hanks@example.com
+    description: Weapons specialist
+    name: Agent Golf
+    tags:
+    - weapons
+    - specialist
+    url: /agent-golf
+  - author: meryl.streep@example.com
+    description: Intelligence analyst
+    name: Agent Hotel
+    tags:
+    - intelligence
+    - analyst
+    url: /agent-hotel
+  - author: leonardo.dicaprio@example.com
+    description: Infiltration expert
+    name: Agent India
+    tags:
+    - infiltration
+    - expert
+    url: /agent-india
+  - author: scarlett.johansson@example.com
+    description: Negotiation specialist
+    name: Agent Juliet
+    tags:
+    - negotiation
+    - specialist
+    url: /agent-juliet
+  - author: denzel.washington@example.com
+    description: ''
+    name: Agent Without Description
+    tags:
+    - surveillance
+    - expert
+    url: /agent-kilo
+  - author: julia.roberts@example.com
+    description: Logistics coordinator
+    name: Agent Lima
+    tags:
+    - logistics
+    - coordinator
+    url: /agent-lima
+  - author: ''
+    description: Explosives expert
+    name: Agent Without Author
+    tags:
+    - explosives
+    - expert
+    url: /agent-mike
+  - author: meryl.streep@example.com
+    description: Reconnaissance specialist
+    name: Agent November
+    tags:
+    - reconnaissance
+    - specialist
+    url: /agent-november
+  - author: leonardo.dicaprio@example.com
+    description: Operations planner
+    name: Agent Oscar
+    tags:
+    - operations
+    - planner
+    url: /agent-oscar
+  - author: scarlett.johansson@example.com
+    description: Psychological profiler
+    name: Agent Papa No Tags
+    tags: []
+    url: /agent-papa
+  - author: denzel.washington@example.com
+    description: Encryption expert
+    name: Agent Quebec
+    tags:
+    - encryption
+    - expert
+    url: /agent-quebec
+  - author: julia.roberts@example.com
+    description: Rescue operations
+    name: Agent Romeo
+    tags:
+    - rescue
+    - operations
+    url: /agent-romeo
+  - author: tom.hanks@example.com
+    description: Signal intelligence
+    name: Agent Sierra
+    tags:
+    - signal
+    - intelligence
+    url: /agent-sierra
+  - author: meryl.streep@example.com
+    description: Tactical driver
+    name: Agent Tango
+    tags:
+    - tactical
+    - driver
+    url: /agent-tango
+  - author: leonardo.dicaprio@example.com
+    description: Unarmed combat expert
+    name: Agent Uniform
+    tags:
+    - combat
+    - unarmed
+    url: /agent-uniform
+  - author: scarlett.johansson@example.com
+    description: Visual surveillance
+    name: Agent Victor
+    tags:
+    - visual
+    - surveillance
+    url: /agent-victor
+  - author: denzel.washington@example.com
+    description: Weapons handler
+    name: Agent Whiskey
+    tags:
+    - weapons
+    - handler
+    url: /agent-whiskey
+  - author: julia.roberts@example.com
+    description: X-ray technician
+    name: Agent X-ray
+    tags:
+    - x-ray
+    - technician
+    url: /agent-x-ray
+  - author: tom.hanks@example.com
+    description: Youth liaison
+    name: Agent Yankee
+    tags:
+    - youth
+    - liaison
+    url: /agent-yankee
+  - author: meryl.streep@example.com
+    description: Zero-day exploit expert
+    name: Agent Zulu
+    tags:
+    - zero-day
+    - exploit
+    url: /agent-zulu
+  - author: leonardo.dicaprio@example.com
+    description: Crisis manager
+    name: Agent Ares
+    tags:
+    - crisis
+    - manager
+    url: /agent-ares
+  - author: scarlett.johansson@example.com
+    description: Cultural liaison
+    name: Agent Athena
+    tags:
+    - cultural
+    - liaison
+    url: /agent-athena
+  - author: denzel.washington@example.com
+    description: Aerial operations
+    name: Agent Apollo
+    tags:
+    - aerial
+    - operations
+    url: /agent-apollo
+  - author: julia.roberts@example.com
+    description: Asset protection
+    name: Agent Artemis
+    tags:
+    - asset
+    - protection
+    url: /agent-artemis
+  - author: tom.hanks@example.com
+    description: High-speed chases
+    name: Agent Hermes
+    tags:
+    - high-speed
+    - chases
+    url: /agent-hermes
+  - author: meryl.streep@example.com
+    description: Hostage negotiator
+    name: Agent Hera
+    tags:
+    - hostage
+    - negotiator
+    url: /agent-hera
+  - author: leonardo.dicaprio@example.com
+    description: Zonal commander
+    name: Agent Zeus
+    tags:
+    - zonal
+    - commander
+    url: /agent-zeus
+  - author: scarlett.johansson@example.com
+    description: Maritime operations
+    name: Agent Poseidon
+    tags:
+    - maritime
+    - operations
+    url: /agent-poseidon
+  - author: denzel.washington@example.com
+    description: Hazardous materials
+    name: Agent Hades
+    tags:
+    - hazardous
+    - materials
+    url: /agent-hades
+  - author: julia.roberts@example.com
+    description: Disaster response
+    name: Agent Demeter
+    tags:
+    - disaster
+    - response
+    url: /agent-demeter
+  - author: tom.hanks@example.com
+    description: Disguise expert
+    name: Agent Dionysus
+    tags:
+    - disguise
+    - expert
+    url: /agent-dionysus
+  - author: meryl.streep@example.com
+    description: Hardware specialist
+    name: Agent Hephaestus
+    tags:
+    - hardware
+    - specialist
+    url: /agent-hephaestus
+  - author: leonardo.dicaprio@example.com
+    description: Home security
+    name: Agent Hestia
+    tags:
+    - home
+    - security
+    url: /agent-hestia
+  - author: scarlett.johansson@example.com
+    description: Personnel trainer
+    name: Agent Persephone
+    tags:
+    - personnel
+    - trainer
+    url: /agent-persephone
+  - author: denzel.washington@example.com
+    description: Advanced combat
+    name: Agent Achilles
+    tags:
+    - advanced
+    - combat
+    url: /agent-achilles
+  - author: julia.roberts@example.com
+    description: Operational planning
+    name: Agent Odysseus
+    tags:
+    - operational
+    - planning
+    url: /agent-odysseus
+  - author: tom.hanks@example.com
+    description: Heavy lifting
+    name: Agent Hercules
+    tags:
+    - heavy
+    - lifting
+    url: /agent-hercules
+  - author: meryl.streep@example.com
+    description: Threat assessment
+    name: Agent Theseus
+    tags:
+    - threat
+    - assessment
+    url: /agent-theseus
+  - author: leonardo.dicaprio@example.com
+    description: Journey planner
+    name: Agent Jason
+    tags:
+    - journey
+    - planner
+    url: /agent-jason
+  - author: scarlett.johansson@example.com
+    description: Oratory skills
+    name: Agent Orpheus
+    tags:
+    - oratory
+    - skills
+    url: /agent-orpheus
+  - author: denzel.washington@example.com
+    description: Problem solver
+    name: Agent Pandora
+    tags:
+    - problem
+    - solver
+    url: /agent-pandora
+  - author: julia.roberts@example.com
+    description: Monitoring systems
+    name: Agent Medusa
+    tags:
+    - monitoring
+    - systems
+    url: /agent-medusa
+  - author: tom.hanks@example.com
+    description: Mission control
+    name: Agent Minerva
+    tags:
+    - mission
+    - control
+    url: /agent-minerva
+  - author: meryl.streep@example.com
+    description: Vehicle maintenance
+    name: Agent Vulcan
+    tags:
+    - vehicle
+    - maintenance
+    url: /agent-vulcan

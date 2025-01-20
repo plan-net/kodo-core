@@ -7,7 +7,7 @@
 - feed: false
 - screen_level: debug
 - flows:
-  - entry: kodo.flow.simple:flow
+  - entry: tests.simple:flow
     url: /test1
     name: flow1
     description: flow1 description

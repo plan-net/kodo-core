@@ -1,17 +1,17 @@
 import multiprocessing
-import pytest
-import urllib.parse
-import httpx
-import asyncio
-from pathlib import Path
-import pandas as pd
 import time
 import traceback
-from tests.assets.agent50 import data as test_data
+import urllib.parse
+from pathlib import Path
+
+import httpx
+import pandas as pd
+import pytest
+import yaml
+
 from kodo.service.node import run_service
-from litestar.datastructures import State
-import logging
-import kodo.worker.loader
+from tests.assets.agent50 import data as test_data
+
 
 class Process(multiprocessing.Process):
     def __init__(self, *args, **kwargs):
@@ -42,6 +42,7 @@ class Service:
         kwargs["reload"] = False
         cache_file = self.url.split("://")[1].replace(":", "_")
         kwargs["cache_data"] = f"./data/{cache_file}"
+        kwargs["cache_reset"] = kwargs.get("cache_reset", True)
         kwargs["screen_level"] = 'DEBUG'
         self.process = Process(target=run_service, kwargs=kwargs)
         self.cache_file = Path(kwargs["cache_data"])
@@ -76,6 +77,15 @@ class Service:
         if not cache:
             self.cache_file.unlink(missing_ok=True)
 
+
+@pytest.fixture(autouse=True)
+def cleanup():
+    yield
+    for proc in multiprocessing.active_children():
+        proc.terminate()
+        proc.join()
+
+
 def test_url():
     server = urllib.parse.urlparse("http://localhost:3366")
     assert server.hostname == "localhost"
@@ -85,119 +95,76 @@ def test_url():
 
 empty = None
 
-def loader1(self: kodo.worker.loader.Loader) -> None:
-    self.flows = [
-        {
-            "entry": "tests.test_node:empty",
-            "url": "/test",
-            "name": "Test"
-        }
-    ]
+def load_from_string() -> str:
+    return """
+- flows:
+  - entry: tests.test_node:empty
+    url: /test
+    name: Test
+    description: Test Flow Description
+"""
+
+async def test_node_from_string():
+    node1 = Service(
+        url="http://localhost:3370", 
+        organization="node1",
+        registry=True,
+        feed=True,
+        loader="tests.test_node:load_from_string"
+    )
+    node1.start()
+    node1.wait()
+    resp = httpx.get(f"{node1.url}/connect", timeout=None)
+    f = resp.json()["nodes"][0]["flows"][0]
+    assert f["name"] == "Test"
+    assert f["description"] == "Test Flow Description"
+    assert f["url"] == "/test"
+    # node1.stop()
+
+
+
+def loader1() -> str:
+    return """
+- flows:
+  - entry: tests.test_node:empty
+    url: /test
+    name: Test
+"""
     # self.add_flow(
     #     url="/test",
     #     name="Test",
     #     entry_point="tests.test_node:empty",
     # )
 
-def loader2(self: kodo.worker.loader.Loader) -> None:
-    self.flows = [
-        {
-            "entry": "tests.test_node:empty",
-            "url": "/test2",
-            "name": "Test 2"
-        }
-    ]
-    # self.add_flow(
-    #     url="/test2",
-    #     name="Test 2",
-    #     entry_point="tests.test_node:empty",
-    # )
+def loader2() -> str:
+    return """
+- flows:
+  - entry: tests.test_node:empty
+    url: /test2
+    name: Test 2
+"""
 
-def loader3(self: kodo.worker.loader.Loader) -> None:
-    self.flows = [
-        {
-            "entry": "tests.test_node:empty",
-            "url": "/test3",
-            "name": "Test 3"
-        }
-    ]
-    # self.add_flow(
-    #     url="/test3",
-    #     name="Test 3",
-    #     entry_point="tests.test_node:empty",
-    # )
+def loader3() -> str:
+    return """
+- flows:
+  - entry: tests.test_node:empty
+    url: /test3
+    name: Test 3
+"""
 
-def _load_prop(self, start, end):
+
+def _load_prop(start, end):
+    ret = []
     for rec in test_data[start:end]:
         rec["entry_point"] = "tests.test_node:empty"
-        self.add_flow(**rec)
+        ret.append(rec)
+    return yaml.dump([{"flows": ret}])
 
-def loader4(self: kodo.worker.loader.Loader) -> None:
-    return _load_prop(self, 0, 50)
+def test_yaml():
+    y = _load_prop(0, 5)
 
-async def test_node():
-    node1 = Service(
-        url="http://localhost:3370", 
-        organization="node1",
-        registry=True,
-        feed=True,
-        loader="tests.test_node:loader1"
-    )
-    node1.start()
-    resp = httpx.get(f"{node1.url}/connect", timeout=None)
-    assert len(resp.json()["nodes"][0]["flows"]) == 1
-    registry2 = Service(
-        url="http://localhost:3371", 
-        organization="registry2",
-        registry=True,
-        feed=True,
-        connect=[node1.url],
-        loader="tests.test_node:loader2"
-    )
-    registry2.start()
-    registry2.wait()
-    resp1 = httpx.get(f"{node1.url}/connect", timeout=None)
-    resp2 = httpx.get(f"{registry2.url}/connect", timeout=None)
-    registry2.wait()
-    
-    assert len(resp1.json()["nodes"]) == 2
-    assert len(resp2.json()["nodes"]) == 2
-
-    node3 = Service(
-        url="http://localhost:3372", 
-        connect=["http://localhost:3373"],
-        organization="node2",
-        registry=False,
-        feed=False,
-        loader="tests.test_node:loader3"
-    )
-    node3.start()
-
-    registry4 = Service(
-        url="http://localhost:3373", 
-        organization="registry3",
-        registry=True,
-        feed=True,
-        connect=[node1.url]
-    )
-    registry4.start()
-    registry4.wait()
-    node3.wait()
-
-    resp1 = httpx.get(f"{node1.url}/connect", timeout=None)
-    resp2 = httpx.get(f"{registry2.url}/connect", timeout=None)
-    resp3 = httpx.get(f"{node3.url}/connect", timeout=None)
-    resp4 = httpx.get(f"{registry4.url}/connect", timeout=None)
-    assert sorted([n["url"] for n in resp1.json()["nodes"]]) == sorted([n["url"] for n in resp2.json()["nodes"]])
-    assert sorted([n["url"] for n in resp1.json()["nodes"]]) == sorted([n["url"] for n in resp4.json()["nodes"]])
-    assert len(resp1.json()["nodes"]) == 3
-    assert len(resp2.json()["nodes"]) == 3
-    assert len(resp3.json()["nodes"]) == 1
-    assert len(resp4.json()["nodes"]) == 3
-    node1.stop()
-    registry2.stop()
-    node3.stop()
-    registry4.stop()
+def loader4() -> str:
+    return _load_prop(0, 50)
 
 
 async def test_cascade():
@@ -264,14 +231,13 @@ async def test_cascade():
         proc.stop()
 
 
-
 async def test_query():
     node = Service(
         url="http://localhost:3370", 
         organization="node",
         registry=True,
         feed=True,
-        loader="tests.test_node:loader4",
+        loader="tests.test_node:loader4",        
     )
     node.start()
     node.wait()
@@ -306,23 +272,20 @@ async def test_query():
             # 'Agent Hephaestus', 'Agent Poseidon', 'Agent Dionysus'] == df.name.tolist()
     node.stop()
 
-def loader4(self: kodo.worker.loader.Loader) -> None:
-    return _load_prop(self, 0, 50)
+def prop1():
+    return _load_prop(0, 8)
 
-def prop1(self):
-    return _load_prop(self, 0, 8)
+def prop2():
+    return _load_prop(8, 20)
 
-def prop2(self):
-    return _load_prop(self, 8, 20)
+def prop3():
+    return _load_prop(20, 32)
 
-def prop3(self):
-    return _load_prop(self, 20, 32)
+def prop4():
+    return _load_prop(32, 39)
 
-def prop4(self):
-    return _load_prop(self, 32, 39)
-
-def prop5(self):
-    return _load_prop(self, 39, 50)
+def prop5():
+    return _load_prop(39, 50)
 
 async def test_query2():
     nodes = []
@@ -863,17 +826,17 @@ async def test_cache():
     node.stop()
     registry.stop()
 
-def sp_loader(self) -> None:
-    return _load_prop(self, 0, 12)
+def sp_loader() -> None:
+    return _load_prop(0, 12)
 
-def mp_loader(self) -> None:
-    return _load_prop(self, 12, 25)
+def mp_loader() -> None:
+    return _load_prop(12, 25)
 
-def mp_forschung_loader(self) -> None:
-    return _load_prop(self, 25, 40)
+def mp_forschung_loader() -> None:
+    return _load_prop(25, 40)
 
-def pn_loader(self) -> None:
-    return _load_prop(self, 40, 50)
+def pn_loader() -> None:
+    return _load_prop(40, 50)
 
 async def test_mesh():
     def make_sp_registry(**kwargs):

@@ -1,0 +1,46 @@
+{% extends "_main.html" %}
+
+{% block header %}
+    <h1>Launch ERROR</h1>
+    <p>{{flow.name}}</p>
+{% endblock %}
+
+{% block content %}
+    <table width="100%">
+        <tbody>
+            <tr>
+                <th>FLow ID</th>
+                <td>
+                    {{result.fid if result.fid is not none else 'not defined, yet'}}
+                </td>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <td>{{ flow.name }}</td>
+            </tr>
+            <tr>
+                <th>Author</th>
+                <td>{{ flow.author }}</td>
+            </tr>
+            <tr>
+                <th>Organization</th>
+                <td>{{ node.organization }}</td>
+            </tr>
+            <tr>
+                <th>Homepage</th>
+                <td>
+                    <a href="{{ url }}">{{ url }}</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <h4>Error Output:</h4>
+    <pre>{{result.stderr}}</pre>
+{% endblock %}
+
+{% block footer %}
+    <p>
+        kodosumi
+    </p>
+{% endblock %}
+

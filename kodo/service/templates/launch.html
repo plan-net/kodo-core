@@ -1,0 +1,48 @@
+{% extends "_main.html" %}
+
+{% block header %}
+    <h1>NEW Launch</h1>
+    <p>{{flow.name}}</p>
+{% endblock %}
+
+{% block content %}
+    <table width="100%">
+        <tbody>
+            <tr>
+                <th>FLow ID</th>
+                <td>
+                    {{ result.fid }}
+                </td>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <td>{{ flow.name }}</td>
+            </tr>
+            <tr>
+                <th>Author</th>
+                <td>{{ flow.author }}</td>
+            </tr>
+            <tr>
+                <th>Organization</th>
+                <td>{{ node.organization }}</td>
+            </tr>
+            <tr>
+                <th>Homepage</th>
+                <td>
+                    <a href="{{ url }}">{{ url }}</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>
+        You can wait until execution is complete or close this window and revisit your requests at <a href="/flow/state/{{ flow.id}}">soko.serviceplan.com</a>.
+    </p>
+{% endblock %}
+
+{% block footer %}
+    <p>
+        {{flow.author}}<br />
+        {{node.organization}}
+    </p>
+{% endblock %}

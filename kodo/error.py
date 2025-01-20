@@ -8,3 +8,7 @@ class DuplicateFlowError(KodoError):
 
 class SetupError(KodoError):
     pass
+
+
+class ImplementationError(KodoError):
+    pass

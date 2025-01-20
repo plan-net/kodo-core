@@ -1,0 +1,76 @@
+[data-theme="light"] {
+  --bg: #fff;
+  --accent-bg: #f5f7ff;
+  --text: #212121;
+  --text-light: #585858;
+  --border: #898ea4;
+  --accent: #0d47a1;
+  --accent-hover: #1266e2;
+  --code: #d81b60;
+  --preformatted: #444;
+  --marked: #ffdd33;
+  --disabled: #efefef;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #212121;
+  --accent-bg: #2b2b2b;
+  --text: #dcdcdc;
+  --text-light: #ababab;
+  --accent: #ffb300;
+  --accent-hover: #eee099;
+  --code: #f06292;
+  --preformatted: #ccc;
+  --disabled: #111;
+}
+
+[data-theme="dark"] img,
+[data-theme="dark"] video {
+  opacity: 0.8;
+}
+
+#sun-icon {
+  display: inline;
+}
+
+#moon-icon {
+  display: none;
+}
+
+[data-theme="light"] #sun-icon {
+  display: none;
+}
+
+[data-theme="light"] #moon-icon {
+  display: inline;
+}
+
+#mode {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+pre {
+  font-size: 0.8rem;
+}
+
+.error {
+  background: var(--code);
+  border: 0px solid var(--border);
+  border-radius: calc(var(--standard-border-radius) * 1.5);
+  color: var(--accent-bg);
+  padding: 0.2rem;
+  padding-left: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.logging {
+  border: 0px solid var(--border);
+  margin: 1rem;
+  padding: 0rem;
+  padding-bottom: 1.2rem;
+}

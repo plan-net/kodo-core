@@ -1,0 +1,17 @@
+- url: http://localhost:3371
+- organization: Plan.Net Gruppe für digitale Kommunikation GmbH & Co. KG
+- connect:
+  - http://localhost:3370
+- registry: false
+- feed: false
+- screen_level: info
+- flows:
+  - entry: tests.test:flow
+    url: /flow2
+    name: Test Flow
+    description: flow2 description
+  - entry: tests.test:flow
+    author: m.rau@house-of-communication.com
+    tags:
+      - test
+      - default

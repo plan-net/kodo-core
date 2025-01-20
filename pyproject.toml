@@ -15,7 +15,8 @@ dependencies = [
     "crewai_tools",
     "pydantic",
     "pydantic-settings",
-    "litestar[standard]"
+    "litestar[standard]",
+    "bson"
 ]
 
 [project.optional-dependencies]

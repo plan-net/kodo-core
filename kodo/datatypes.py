@@ -1,10 +1,9 @@
 import datetime
-from dataclasses import asdict, dataclass
-from typing import Callable, Dict, List, Optional, Union
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, field_validator
-from pydantic_settings import SettingsConfigDict, BaseSettings
+from pydantic import BaseModel, RootModel, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Option(BaseSettings):
@@ -93,14 +92,18 @@ class Flow(BaseModel):
     description: Optional[str] = None
     author: Optional[str] = None
     tags: Optional[List[str]] = []
+    entry: Optional[str] = None
 
 
-class Node(BaseModel):
+class NodeInfo(BaseModel):
     url: str
     organization: Optional[str] = None
-    flows: List[Flow]
+
+
+class Node(NodeInfo):
     created: Optional[datetime.datetime] = None
     modified: Optional[datetime.datetime] = None
+    flows: List[Flow]
     heartbeat: Optional[datetime.datetime] = None
     status: Optional[str] = None
 
@@ -136,3 +139,35 @@ class ProviderMap(DefaultResponse):
     providers: List[Provider]
     connection: Dict[str, Union[datetime.datetime, None]]
     registers: Dict[str, datetime.datetime]
+
+
+class IPCinput(BaseModel):
+    key: str
+    value: Any
+
+
+class IPCresult(BaseModel):
+    content: str
+    returncode: int
+    stderr: str
+    fid: Optional[str] = None
+    logging: List[str] = []
+
+
+class DynamicModel(RootModel[Dict[str, Any]]):
+    pass
+
+
+WorkerMode = Literal[
+    "discover",
+    "enter",
+    "launch",
+    "execute"
+]
+
+
+class MODE:
+    DISCOVER: WorkerMode = "discover"
+    ENTER: WorkerMode = "enter"
+    LAUNCH: WorkerMode = "launch"
+    EXECUTE: WorkerMode = "execute"
