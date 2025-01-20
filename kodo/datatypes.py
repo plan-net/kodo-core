@@ -10,6 +10,7 @@ class Option(BaseSettings):
 
     LOADER: Optional[str] = "kodo.worker.loader:default_loader"
     URL:  Optional[str] = "http://localhost:3366"
+    CORS_ORIGINS: Optional[List[str]] = ["*"]
     ORGANIZATION: Optional[str] = None
     CONNECT: Optional[List[str]] = None
     REGISTRY: Optional[bool] = True
@@ -33,9 +34,9 @@ class Option(BaseSettings):
                 return v[:-1]
             return v
 
-    @field_validator("CONNECT", mode="before")
-    def connect_to_list(cls, v):
-        """Split the CONNECT environment variable into a list."""
+    @field_validator("CONNECT", "CORS_ORIGINS", mode="before")
+    def string_to_list(cls, v):
+        """Split the env vr environment variable into a list."""
         if isinstance(v, str):
             return [s.strip() for s in v.split(',')]
         return v
