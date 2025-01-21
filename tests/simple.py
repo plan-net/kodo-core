@@ -1,12 +1,21 @@
 from crewai import Agent, Task, Crew, Process
+from crewai_tools import tool
 from langchain_openai import ChatOpenAI
 import datetime
 
 from kodo.common import publish, Launch
 
 
-# llm = ChatOpenAI(model="ollama/phi3:3.8b", base_url="http://localhost:11434")
-llm = ChatOpenAI()
+llm = ChatOpenAI(model="ollama/phi3:3.8b", base_url="http://localhost:11434")
+# llm = ChatOpenAI()
+
+
+# Tools
+@tool("Mock Tool")
+def mock_tool(query: str) -> str:
+    """Evaluate query and say 'I like it' or say 'I don't like it'."""
+    return "I like it"
+
 
 # Agents
 story_architect = Agent(
@@ -15,6 +24,7 @@ story_architect = Agent(
     goal="Create a topic outline for a short hymn.",
     backstory="An experienced hymn author with a knack for engaging plots.",
     llm=llm,
+    tools=[mock_tool],
     max_iter=3,
     verbose=True
 )
@@ -67,7 +77,7 @@ flow = publish(
 )
 
 @flow.enter
-async def landing_page(form):
+def landing_page(form):
     if topic:=form.get("topic"):
         if topic.strip():
             return Launch(topic=topic.strip())

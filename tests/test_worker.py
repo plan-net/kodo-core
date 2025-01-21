@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 from io import BytesIO
 from subprocess import check_call
@@ -10,12 +11,15 @@ import pandas as pd
 from litestar.datastructures import FormMultiDict, UploadFile
 
 import kodo.worker.act
-from kodo.common import publish
-from kodo.common import Launch
+from kodo.common import Launch, publish
 from tests.test_node import Service
 
 
-def execute(inputs: Optional[dict]=None):
+def execute(inputs, event):
+    event.result(test="hello world")
+    for i in range(1000):
+        event.result(test=f"intermediate result {i}")
+    event.final({"message": "Hallo Welt"})
     return "OK"
 
 flow1 = publish(
@@ -191,10 +195,50 @@ def ray_landing_page(form):
     return f'<input type="submit" name="submit"><input type="text" name="topic">'
 
 
-async def test_ray_startup(tmp_path):
+async def test_thread_startup(tmp_path):
     node = Service(
         url="http://localhost:3367", 
         loader="tests.test_worker:ray_loader")
+    node.start()
+    resp = httpx.get("http://localhost:3367/flows/execute_remote", timeout=None)
+    assert 'submit' in resp.content.decode("utf-8")
+    assert 'topic' in resp.content.decode("utf-8")
+
+    # resp = httpx.post(
+    #     "http://localhost:3367/flows/execute_remote", 
+    #     data={"topic": "The more you know, the more you realize you don't know."},
+    #     headers={"Accept": "application/json"}, timeout=None)
+    # assert resp.json()["flow"]["name"] == "Ray Test"
+    # assert resp.json()["returncode"] == 0
+    # assert resp.json()["success"]
+    # assert resp.json()["fid"] is not None
+    # import time
+    # while True:
+    #     if '"status":"finished"' in open(resp.json()["event_log"], "r").read():
+    #         break
+    #     time.sleep(1)
+
+    resp = httpx.post(
+        "http://localhost:3367/flows/execute_remote", 
+        data={"topic": "The more you know, the more you realize you don't know."},
+        headers={"Accept": "application/json"}, timeout=None)
+    assert resp.json()["flow"]["name"] == "Ray Test"
+    assert resp.json()["returncode"] == 0
+    assert resp.json()["success"]
+    assert resp.json()["fid"] is not None
+    import time
+    while True:
+        if '"status":"finished"' in open(resp.json()["event_log"], "r").read():
+            break
+        time.sleep(1)
+    node.stop()
+
+
+async def test_ray_startup():
+    os.system("ray start --head")
+    node = Service(
+        url="http://localhost:3367", 
+        loader="tests.test_worker:ray_loader", ray=True)
     node.start()
     resp = httpx.get("http://localhost:3367/flows/execute_remote", timeout=None)
     assert 'submit' in resp.content.decode("utf-8")
@@ -213,3 +257,4 @@ async def test_ray_startup(tmp_path):
             break
         time.sleep(1)
     node.stop()
+    os.system("ray stop")

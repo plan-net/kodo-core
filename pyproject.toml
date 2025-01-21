@@ -16,7 +16,8 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "litestar[standard]",
-    "bson"
+    "bson",
+    "ray[default]"
 ]
 
 [project.optional-dependencies]

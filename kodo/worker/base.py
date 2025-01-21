@@ -1,10 +1,8 @@
-import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from kodo import helper
 from kodo.datatypes import DynamicModel, WorkerMode
-from kodo.error import SetupError
 
 EVENT_STREAM = "event.log"
 IPC_MODULE = "kodo.worker.main"
@@ -32,16 +30,14 @@ class FlowProcess:
             flow_data.mkdir(exist_ok=True, parents=True)
             self.event_log = flow_data.joinpath(EVENT_STREAM)
 
-    def event(self, kind: str, **kwargs):
+    def _ev_write(self, kind: str, data: Dict):
         # executed in the subprocess
-        # access is at this stage exlusive
-        if self.event_log:
-            with open(self.event_log, "a") as f:
-                for k, v in kwargs.items():
-                    dump = DynamicModel({k: v}).model_dump_json()
-                    f.write(f"{kind}: {dump}\n")
-        else:
-            raise SetupError("event log not available")
+        # access is at this stage exclusive
+        # value is dictionary
+        with open(self.event_log, "a") as f:  # type: ignore
+            dump = DynamicModel(data).model_dump_json()
+            now = helper.now().isoformat()
+            f.write(f"{now} {kind} {dump}\n")
 
     def communicate(self, mode: Union[WorkerMode, str]) -> None:
         raise NotImplementedError()

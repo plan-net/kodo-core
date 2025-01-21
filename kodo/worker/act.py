@@ -9,11 +9,10 @@ from litestar.datastructures import FormMultiDict, UploadFile
 
 import kodo.error
 from kodo import helper
-from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode
 from kodo.common import Launch
+from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode
+from kodo.worker.base import EVENT_STREAM, IPC_MODULE
 from kodo.worker.loader import FlowDiscovery
-from kodo.worker.base import IPC_MODULE
-from kodo.worker.base import EVENT_STREAM
 
 
 class FlowAction(FlowDiscovery):
@@ -33,24 +32,22 @@ class FlowAction(FlowDiscovery):
                 yield "form: " + IPCinput(
                     key=key, value=value).model_dump_json()
 
-    # def _mk_fid(self, fid: str) -> Generator[str, None, None]:
-    #     yield "form: " + IPCinput(key="fid", value=fid).model_dump_json()
-
     def run(self):
         # takes place on the node
         # creates the detached worker process to execute the flow
         event_data = self.exec_path.joinpath(str(self.fid))
         self.event_log = event_data.joinpath(EVENT_STREAM)
-        self.event("data", status="pending")
+        self._ev_write("data", dict(status="pending"))
         environ = os.environ.copy()
         process = Popen(
             [sys.executable, "-m", IPC_MODULE, MODE.EXECUTE, self.factory,
              self.exec_path, self.fid], stdout=DEVNULL, stderr=DEVNULL, 
-             env=environ, preexec_fn=os.setsid)
+             env=environ)
+             #start_new_session=True)
+        return process
 
     def communicate(self, mode: Union[WorkerMode, str]) -> None:
         # is executed in the worker subprocess
-        # import tempfile
         if self.factory is None:
             return
         flow: Any = helper.parse_factory(self.factory)
@@ -81,7 +78,8 @@ class FlowAction(FlowDiscovery):
         inputs = inputs or {}
         fid = ObjectId()
         self.create_event_stream(str(fid))
-        self.event("data", version=kodo.__version__, entry_point=self.factory,
-                     fid=str(self.fid))
-        self.event("data", inputs=inputs or {})
+        self._ev_write("data", 
+            dict(version=kodo.__version__, entry_point=self.factory, 
+                fid=str(self.fid)))
+        self._ev_write("data", dict(inputs=inputs or {}))
 
