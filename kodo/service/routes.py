@@ -1,35 +1,27 @@
-import datetime
 import os
 import signal
-import sys
 from typing import List, Literal, Optional, Union
-from litestar import Litestar, Request, get, post, delete, Response, MediaType
-from litestar.datastructures import State
-from litestar.exceptions import NotFoundException, HTTPException
-from litestar.response import Template
-from litestar.enums import RequestEncodingType
-from litestar.status_codes import (
-    HTTP_201_CREATED,
-    HTTP_204_NO_CONTENT,
-    HTTP_400_BAD_REQUEST,
-    HTTP_404_NOT_FOUND,
-    HTTP_500_INTERNAL_SERVER_ERROR,
-    HTTP_200_OK
-)
-import httpx
 
-import kodo
+import httpx
+from litestar import Litestar, MediaType, Request, Response, delete, get, post
+from litestar.datastructures import State
+from litestar.enums import RequestEncodingType
+from litestar.exceptions import HTTPException, NotFoundException
+from litestar.response import Template
+from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
+                                   HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST,
+                                   HTTP_404_NOT_FOUND,
+                                   HTTP_500_INTERNAL_SERVER_ERROR)
+
 import kodo.helper as helper
 import kodo.service.controller
 import kodo.service.signal
 import kodo.worker.loader
-from kodo.worker.act import FlowAction
-from kodo.datatypes import (IPCresult, WorkerMode, DefaultResponse, 
-                            ProviderMap, Connect, Provider, Disconnect, 
-                            NodeInfo, MODE)
+from kodo.datatypes import (MODE, Connect, DefaultResponse, Disconnect,
+                            NodeInfo, Provider, ProviderMap, WorkerMode)
 from kodo.log import logger
-from kodo.service.flow import build_df, filter_df, sort_df, flow_welcome_url
-
+from kodo.service.flow import build_df, filter_df, flow_welcome_url, sort_df
+from kodo.worker.act import FlowAction
 
 
 class NodeConnector(kodo.service.controller.Controller):
@@ -347,8 +339,9 @@ class NodeConnector(kodo.service.controller.Controller):
                                     detail=f"Failed to update peer node at {
                                         peer.url} after multiple retries.")
                             else:
-                                logger.warning(f"Retrying update to {peer.url} in {
-                                                backoff.sleep} seconds...")
+                                logger.warning(
+                                    f"Retrying update to {peer.url} "
+                                    f"in {backoff.sleep} seconds...")
                                 await backoff.wait()  # Wait with exponential backoff
         logger.info(f"Update process completed for provider {data.url}")
         return default
@@ -445,7 +438,7 @@ class NodeConnector(kodo.service.controller.Controller):
         t = helper.now() - t0
         logger.info(
             f"{mode} `{flow.name}` ({flow.entry}), "
-            f"bootup in {t}: {'OK' if ret.returncode == 0 else 'ERROR'}")
+            f"booting in {t}: {'OK' if ret.returncode == 0 else 'ERROR'}")
         if ret.returncode == 0:
             if ret.fid:
                 t0 = helper.now()
@@ -472,7 +465,8 @@ class NodeConnector(kodo.service.controller.Controller):
                 "node": node,
                 "url": flow_welcome_url(node.url, flow.url),
                 "exec_path": ipc.exec_path,
-                "event_log": ipc.event_log},
+                "event_log": ipc.event_log
+            },
             status_code=status)
 
     @post("/flows/{path:path}")

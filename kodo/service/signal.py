@@ -68,7 +68,11 @@ async def connect(url, state) -> None:
         state.providers[provider.url] = provider
         logger.info(f"feedback from {feedback.url} with {helper.stat(nodes)}")
     release(state)
-    logger.debug(f"{url}/connect complete")
+    if resp:
+        state.connection[url] = helper.now()
+        logger.debug(f"{url}/connect complete")
+    else:
+        logger.error(f"{url}/connect failed")
 
 
 @listener("update")

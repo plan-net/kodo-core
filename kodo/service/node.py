@@ -64,6 +64,10 @@ def create_app(**kwargs) -> Litestar:
         f"connection: {len(state.connection)}, "
         f"log level: {state.screen_level}"
     )
+    if state.ray:
+        logger.info(f"use ray for distributed, concurrent processing")
+    else:
+        logger.info(f"use threading")
     if state.cache_reset:
         if Path(state.cache_data).exists():
             logger.warning(f"reset cache {state.cache_data}")
