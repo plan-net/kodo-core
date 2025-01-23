@@ -4,11 +4,12 @@ from langchain_openai import ChatOpenAI
 import datetime
 
 from kodo.common import publish, Launch
+from tests.test_crew import ollama_online
 
-
-llm = ChatOpenAI(model="ollama/phi3:3.8b", base_url="http://localhost:11434")
-# llm = ChatOpenAI()
-
+llm = ChatOpenAI()
+if ollama_online():
+    llm = ChatOpenAI(
+        model="ollama/phi3:3.8b", base_url="http://localhost:11434")
 
 # Tools
 @tool("Mock Tool")

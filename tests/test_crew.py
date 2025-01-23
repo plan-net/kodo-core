@@ -1,8 +1,22 @@
 import httpx
 import time
+import os
 
 from tests.test_node import Service
 
+def _online(url: str):
+    try:
+        httpx.get(url, timeout=1)
+        return True
+    except:
+        return False
+
+def ollama_online():
+    return _online("http://127.0.0.1:11434")
+
+
+def ray_online():
+    return _online("http://127.0.0.1:8265/")
 
 def crew_loader():
     return """
@@ -41,6 +55,7 @@ async def test_crewai():
 
 
 async def test_crewai_with_ray():
+    # os.system("ray start --head")
     node = Service(
         url="http://localhost:3367", 
         loader="tests.test_crew:crew_loader", ray=True)
@@ -62,4 +77,5 @@ async def test_crewai_with_ray():
             break
         time.sleep(1)
     node.stop()
+    # os.system("ray stop")
 

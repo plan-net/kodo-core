@@ -11,7 +11,7 @@ import kodo.error
 from kodo import helper
 from kodo.common import Launch
 from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import EVENT_STREAM, IPC_MODULE
+from kodo.worker.base import EVENT_STREAM, STDERR_FILE, STDOUT_FILE, IPC_MODULE
 from kodo.worker.loader import FlowDiscovery
 
 
@@ -39,11 +39,14 @@ class FlowAction(FlowDiscovery):
         self.event_log = event_data.joinpath(EVENT_STREAM)
         self._ev_write("data", dict(status="pending"))
         environ = os.environ.copy()
-        process = Popen(
-            [sys.executable, "-m", IPC_MODULE, MODE.EXECUTE, self.factory,
-             self.exec_path, self.fid], stdout=DEVNULL, stderr=DEVNULL, 
-             env=environ)
-             #start_new_session=True)
+        stdout_log = event_data.joinpath(STDOUT_FILE)
+        stderr_log = event_data.joinpath(STDERR_FILE)
+        with (open(stdout_log, 'wb') as stdout_file, 
+              open(stderr_log, 'wb') as stderr_file):
+            process = Popen(
+                [sys.executable, "-m", IPC_MODULE, MODE.EXECUTE, self.factory,
+                 self.exec_path, self.fid], stdout=stdout_file, 
+                 stderr=stderr_file, env=environ, start_new_session=True)
         return process
 
     def communicate(self, mode: Union[WorkerMode, str]) -> None:

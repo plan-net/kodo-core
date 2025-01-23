@@ -5,6 +5,8 @@ from kodo import helper
 from kodo.datatypes import DynamicModel, WorkerMode
 
 EVENT_STREAM = "event.log"
+STDOUT_FILE = "stdout.log"
+STDERR_FILE = "stderr.log"
 IPC_MODULE = "kodo.worker.main"
 FIX = "@_ks_@"
 

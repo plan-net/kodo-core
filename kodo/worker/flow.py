@@ -1,6 +1,7 @@
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Union, Any, Callable, Optional, Dict
+import sys
 import queue
 import inspect
 import ray.util.queue
@@ -8,6 +9,7 @@ import crewai
 from kodo import helper
 from kodo.datatypes import DynamicModel
 import kodo.error
+
 
 class Flow:
 
@@ -78,9 +80,9 @@ class FlowCrewAI(Flow):
             cbcall(*args, **kwargs)
         data = args[0]
         if hasattr(data, "model_dump"):
-            self.result({data.__class__.__name__: data.model_dump()}) # gohere
+            self.result({data.__class__.__name__: data.model_dump()})
         else:
-            self.result({data.__class__.__name__: data.__dict__}) # gohere
+            self.result({data.__class__.__name__: data.__dict__})
 
     def _crewai_step_callback(self, *args, **kwargs) -> None:
         self._callback("step_callback", *args, **kwargs)
@@ -90,7 +92,7 @@ class FlowCrewAI(Flow):
 
     def finish(self, *args, **kwargs) -> None:
         for result in args:
-            self.final({result.__class__.__name__: result.model_dump()}) # gohere
+            self.final({result.__class__.__name__: result.model_dump()})
 
 
 def flow_factory(
@@ -104,8 +106,8 @@ def flow_factory(
                 data = DynamicModel.model_validate_json(body)
                 for k, v in data.root.items():
                     state[k] = v
-            else:
-                raise RuntimeError(f"unknown action: {action}")
+            # else:
+            #     raise RuntimeError(f"unknown action: {action}")
 
     entry_point = str(state.get("entry_point"))
     flow: Any = helper.parse_factory(entry_point)
