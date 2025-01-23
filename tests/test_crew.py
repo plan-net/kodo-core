@@ -1,22 +1,29 @@
 import httpx
 import time
 import os
-
+import pytest
 from tests.test_node import Service
 
 def _online(url: str):
     try:
-        httpx.get(url, timeout=1)
+        return httpx.get(url, timeout=1)
+    except:
+        return None
+
+def ollama_online():
+    try:
+        _online("http://127.0.0.1:11434")
         return True
     except:
         return False
 
-def ollama_online():
-    return _online("http://127.0.0.1:11434")
-
-
 def ray_online():
     return _online("http://127.0.0.1:8265/")
+
+
+def test_prerequisites():
+    assert ollama_online()
+    # assert ray_online()
 
 def crew_loader():
     return """
@@ -29,10 +36,11 @@ def crew_loader():
   - entry: tests.simple:flow
 """
 
-async def test_crewai():
+@pytest.mark.timeout(300)
+async def test_crewai_with_thread():
     node = Service(
         url="http://localhost:3367", 
-        loader="tests.test_crew:crew_loader",)
+        loader="tests.test_crew:crew_loader")
     node.start()
     resp = httpx.get("http://localhost:3367/flows/test/hymn1", timeout=None)
     assert 'submit' in resp.content.decode("utf-8")
@@ -54,8 +62,9 @@ async def test_crewai():
     node.stop()
 
 
+@pytest.mark.timeout(300)
 async def test_crewai_with_ray():
-    # os.system("ray start --head")
+    os.system("ray start --head")
     node = Service(
         url="http://localhost:3367", 
         loader="tests.test_crew:crew_loader", ray=True)
@@ -77,5 +86,5 @@ async def test_crewai_with_ray():
             break
         time.sleep(1)
     node.stop()
-    # os.system("ray stop")
+    os.system("ray stop")
 

@@ -220,7 +220,7 @@ async def test_thread_startup(tmp_path):
 
 
 async def test_ray_startup():
-    # os.system("ray start --head")
+    os.system("ray start --head")
     node = Service(
         url="http://localhost:3367", 
         loader="tests.test_worker:ray_loader", ray=True)
@@ -242,7 +242,7 @@ async def test_ray_startup():
             break
         time.sleep(1)
     node.stop()
-    # os.system("ray stop")
+    os.system("ray stop")
 
 
 
@@ -286,7 +286,7 @@ def stream_landing_page(form):
 async def test_stream_thread():
     node = Service(
         url="http://localhost:3367", 
-        loader="tests.test_worker:stream_loader", ray=True)
+        loader="tests.test_worker:stream_loader", ray=False)
     node.start()
     resp = httpx.post(
         "http://localhost:3367/flows/execute_remote", 
