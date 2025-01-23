@@ -3,6 +3,7 @@ from pathlib import Path
 
 import uvicorn
 from litestar import Litestar
+from litestar.config.cors import CORSConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
@@ -22,6 +23,7 @@ def create_app(**kwargs) -> Litestar:
     loader = kodo.worker.loader.Loader()
     state = loader.load()
     app = Litestar(
+        cors_config=CORSConfig(allow_origins=state.cors_origins),
         route_handlers=[
             NodeConnector,
             create_static_files_router(
