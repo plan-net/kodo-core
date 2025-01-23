@@ -1,13 +1,12 @@
 import sys
 from pathlib import Path
 
+import kodo.error
+from kodo.datatypes import MODE
+from kodo.worker.act import FlowAction
 from kodo.worker.execute import FlowExecution
 from kodo.worker.loader import FlowDiscovery
-from kodo.worker.act import FlowAction
 from kodo.worker.process import FlowProcess
-from kodo.datatypes import MODE
-import kodo.error
-
 
 if __name__ == "__main__":
     mode, factory, exec_path, fid = sys.argv[1:5]

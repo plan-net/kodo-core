@@ -1,7 +1,7 @@
 import base64
 import os
 import sys
-from subprocess import DEVNULL, Popen
+from subprocess import Popen
 from typing import Any, Generator, Optional, Union
 
 from bson import ObjectId
@@ -11,7 +11,7 @@ import kodo.error
 from kodo import helper
 from kodo.common import Launch
 from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import EVENT_STREAM, STDERR_FILE, STDOUT_FILE, IPC_MODULE
+from kodo.worker.base import EVENT_STREAM, IPC_MODULE, STDERR_FILE, STDOUT_FILE
 from kodo.worker.loader import FlowDiscovery
 
 

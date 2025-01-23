@@ -7,7 +7,7 @@ from typing import Callable, Dict, Generator, List, Optional
 from litestar.datastructures import FormMultiDict, UploadFile
 
 from kodo.datatypes import DynamicModel, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import FIX, FlowProcess, IPC_MODULE
+from kodo.worker.base import FIX, IPC_MODULE, FlowProcess
 
 
 class FlowInterProcess(FlowProcess):

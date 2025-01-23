@@ -5,17 +5,15 @@ from multiprocessing import Process
 from multiprocessing import Queue as M_Queue
 from pathlib import Path
 from typing import Union
-import sys
+
+import httpx
 import ray
 from ray.util.queue import Queue as R_Queue
-import httpx
 
-import kodo.error
 from kodo import helper
 from kodo.datatypes import InternalOption, WorkerMode
 from kodo.worker.base import FlowProcess
 from kodo.worker.flow import flow_factory
-from kodo.log import logger
 
 
 def _execute(event_stream_file: Path, event):
