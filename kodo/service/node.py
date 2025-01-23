@@ -14,7 +14,8 @@ import kodo.log
 import kodo.service.signal
 import kodo.worker.loader
 from kodo.log import logger
-from kodo.service.routes import NodeConnector
+from kodo.service.route.main import NodeControl
+from kodo.service.route.flow import FlowControl
 
 DEFAULT_LOADER = "kodo.worker.loader:default_loader"
 
@@ -25,13 +26,14 @@ def create_app(**kwargs) -> Litestar:
     app = Litestar(
         cors_config=CORSConfig(allow_origins=state.cors_origins),
         route_handlers=[
-            NodeConnector,
+            NodeControl,
+            FlowControl,
             create_static_files_router(
                 path="/static",
                 directories=[Path(__file__).parent / "static"])
         ],
-        on_startup=[NodeConnector.startup],
-        on_shutdown=[NodeConnector.shutdown],
+        on_startup=[NodeControl.startup],
+        on_shutdown=[NodeControl.shutdown],
         listeners=[
             kodo.service.signal.connect,
             kodo.service.signal.update,
