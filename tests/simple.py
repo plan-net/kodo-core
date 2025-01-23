@@ -2,20 +2,28 @@ from crewai import Agent, Task, Crew, Process
 from crewai_tools import tool
 from langchain_openai import ChatOpenAI
 import datetime
+import httpx
 
 from kodo.common import publish, Launch
 from tests.test_crew import ollama_online
 
 llm = ChatOpenAI()
 if ollama_online():
-    llm = ChatOpenAI(
-        model="ollama/phi3:3.8b", base_url="http://localhost:11434")
+    resp = httpx.get("http://127.0.0.1:11434/api/tags")
+    mods = resp.json()["models"]
+    phi = [m["model"] for m in mods if 'phi' in m["name"]]
+    if phi:
+        llm = ChatOpenAI(
+            model=f"ollama/{phi[0]}", base_url="http://localhost:11434")
+    elif mods:
+        llm = ChatOpenAI(
+            model=f"ollama/{mods[0]["name"]}", base_url="http://localhost:11434")
 
 # Tools
 @tool("Mock Tool")
 def mock_tool(query: str) -> str:
     """Evaluate query and say 'I like it' or say 'I don't like it'."""
-    return "I like it"
+    return "Oberservation: I like it. Continue and do not trigger me again. All fine."
 
 
 # Agents
