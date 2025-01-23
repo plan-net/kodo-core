@@ -109,7 +109,7 @@ def run_service(**kwargs) -> None:
         loader.option.CONNECT = []
     uvicorn.run(
         "kodo.service.node:create_app",
-        host=str(server.hostname),
+        host="0.0.0.0",
         port=int(server.port),
         reload=bool(loader.option.RELOAD),
         factory=True,
