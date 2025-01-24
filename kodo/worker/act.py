@@ -7,10 +7,11 @@ from typing import Any, Generator, Optional, Union
 from bson import ObjectId
 from litestar.datastructures import FormMultiDict, UploadFile
 
+import kodo.datatypes
 import kodo.error
 from kodo import helper
 from kodo.common import Launch
-from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode
+from kodo.datatypes import MODE, IPCinput, IPCresult, WorkerMode, Flow
 from kodo.worker.base import EVENT_STREAM, IPC_MODULE, STDERR_FILE, STDOUT_FILE
 from kodo.worker.loader import FlowDiscovery
 
@@ -32,11 +33,14 @@ class FlowAction(FlowDiscovery):
                 yield "form: " + IPCinput(
                     key=key, value=value).model_dump_json()
 
-    def run(self):
+    def run(self, flow: Flow) -> Popen:
         # takes place on the node
         # creates the detached worker process to execute the flow
+        assert self.exec_path is not None, "exec_path is None"
+        assert self.fid is not None, "fid is None"
         event_data = self.exec_path.joinpath(str(self.fid))
         self.event_log = event_data.joinpath(EVENT_STREAM)
+        self._ev_write("data", {"flow": flow.model_dump()})
         self._ev_write("data", dict(status="pending"))
         environ = os.environ.copy()
         stdout_log = event_data.joinpath(STDOUT_FILE)
@@ -45,7 +49,7 @@ class FlowAction(FlowDiscovery):
               open(stderr_log, 'wb') as stderr_file):
             process = Popen(
                 [sys.executable, "-m", IPC_MODULE, MODE.EXECUTE, self.factory,
-                 self.exec_path, self.fid], stdout=stdout_file, 
+                 self.exec_path, self.fid], stdout=stdout_file,
                  stderr=stderr_file, env=environ, start_new_session=True)
         return process
 

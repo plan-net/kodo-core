@@ -115,7 +115,7 @@ class FlowControl(kodo.service.controller.Controller):
         if ret.returncode == 0:
             if ret.fid:
                 t0 = helper.now()
-                proc = ipc.run()
+                proc = ipc.run(flow)
                 template_file = "launch.html"
                 status = HTTP_201_CREATED
                 t = helper.now() - t0
