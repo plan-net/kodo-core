@@ -16,6 +16,7 @@ import kodo.worker.loader
 from kodo.log import logger
 from kodo.service.route.main import NodeControl
 from kodo.service.route.flow import FlowControl
+from kodo.service.route.execute import ExecutionControl
 
 DEFAULT_LOADER = "kodo.worker.loader:default_loader"
 
@@ -28,6 +29,7 @@ def create_app(**kwargs) -> Litestar:
         route_handlers=[
             NodeControl,
             FlowControl,
+            ExecutionControl,
             create_static_files_router(
                 path="/static",
                 directories=[Path(__file__).parent / "static"])

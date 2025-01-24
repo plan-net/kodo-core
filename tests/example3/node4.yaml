@@ -1,0 +1,19 @@
+- url: http://localhost:3371
+- organization: Plan.Net Journey GmbH & Co. KG
+- registry: false
+- feed: false
+- screen_level: info
+- ray: true
+- flows:
+  - entry: tests.test_worker:stream_flow
+    url: /flow
+    name: Quick Test Flow
+    description: none
+  - entry: tests.test_worker:flow3
+    url: /flow1
+    name: Print Range Flow
+    description: none
+  - entry: tests.simple:flow
+    url: /crew
+    name: Crewai Flow
+    description: none

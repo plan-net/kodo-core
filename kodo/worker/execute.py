@@ -73,10 +73,10 @@ class FlowExecution(FlowProcess):
         event_queue: R_Queue = R_Queue()
         task = execute_ray.remote(self.event_log, event_queue)
         ctx = ray.get_runtime_context()
-        self._ev_write("data", {
+        self._ev_write("data", {"ray": {
             "job_id": ctx.get_job_id(),
             "node_id": ctx.get_node_id()
-        })
+        }})
         success = True
         while True:
             done, _ = ray.wait([task], timeout=1)
