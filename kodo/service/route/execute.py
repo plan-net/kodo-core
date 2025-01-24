@@ -62,7 +62,7 @@ class ExecutionControl(kodo.service.controller.Controller):
         stderr_file = folder.joinpath(STDERR_FILE)
         ev_data = ExecutionResult(ev_file.open("r"))
         ev_data.read()
-
+        assert ev_data.flow
         def file_size(file: Path) -> Union[int, None]:
             return file.stat().st_size if file.exists() else None
 
@@ -71,6 +71,7 @@ class ExecutionControl(kodo.service.controller.Controller):
             "runtime": ev_data.runtime().total_seconds(),
             "version": ev_data.version,
             "entry_point": ev_data.entry_point,
+            "flow": ev_data.flow.model_dump(),
             "fid": ev_data.fid,
             "executor": ev_data.executor,
             "ray": ev_data.ray,

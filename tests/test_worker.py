@@ -362,9 +362,18 @@ def test_thread_aggregate_no_end():
     assert result.status() == "running"
 
 def execute3(inputs, event: Flow):
-    for i in range(5000):
-        event.result(dict(test=f"intermediate result {i}"))
+    t0 = datetime.datetime.now()
+    i = 0
+    runtime = inputs.get("runtime", None)
+    while True:
+        i += 1
+        if i % 1000 == 0:
+            event.result(dict(test=f"intermediate result {i}"))
         print(f"debug: {i}")
+        time.sleep(0.005)
+        if runtime:
+            if (datetime.datetime.now() - t0).total_seconds() > int(runtime):
+                break
     event.final({"message": "Hallo Welt"})
     return "OK"
 
@@ -375,8 +384,14 @@ flow3 = publish(
 @flow3.enter
 def flow3_page(form, method):
     if form.get("submit"):
-        return Launch()
-    return f'<input type="submit" name="submit">'
+        runtime = form.get("runtime", None)
+        if runtime is None: runtime = 10
+        return Launch(runtime=runtime)
+    return """
+    Tell me how long you want me to run. I will add some time on top of that.
+    <hr/>
+    <input type="text" name="runtime"> <input type="submit" name="submit">
+    """
 
 
 def test_ray_aggregate():
