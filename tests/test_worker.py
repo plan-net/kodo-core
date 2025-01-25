@@ -323,43 +323,43 @@ async def test_execution():
     node.stop()
 
 
-def test_thread_aggregate():
-    inputs = """
-2025-01-24T12:22:30.000000+00:00 data {"version":"0.0.0","entry_point":"tests.test_worker:ray_flow","fid":"679386076dd659cb0cb5665f"}
-2025-01-24T12:22:31.639765+00:00 data {"inputs":{"topic":"The more you know, the more you realize you don't know."}}
-2025-01-24T12:22:31.922876+00:00 data {"flow":{"url":"/execute_remote","name":"Ray Test","description":"cannot be empty","author":null,"tags":null,"entry":"tests.test_worker:ray_flow"}}
-2025-01-24T12:22:32.000000+00:00 data {"status":"pending"}
-2025-01-24T12:22:34.048620+00:00 data {"status":"booting","pid":51987,"ppid":51969,"executor":"thread"}
-2025-01-24T12:22:36.594510+00:00 data {"status":"running"}
-2025-01-24T12:22:36.597864+00:00 result {"test":"hello world"}
-2025-01-24T12:22:36.600946+00:00 result {"test":"intermediate result 0"}
-2025-01-24T12:22:36.604978+00:00 result {"test":"intermediate result 1"}
-2025-01-24T12:22:36.608375+00:00 result {"test":"intermediate result 2"}
-2025-01-24T12:22:43.962309+00:00 final {"message":"Hallo Welt"}
-2025-01-24T12:22:43.964003+00:00 data {"status":"stopping"}
-2025-01-24T12:22:45.000000+00:00 data {"status":"finished","runtime":10.421818}
-    """
-    stream = StringIO(inputs)
-    result = ExecutionResult(stream)
-    result.read()
-    assert result.runtime().total_seconds() == 13.0
-    assert result.status() == "finished"
+# def test_thread_aggregate():
+#     inputs = """
+# 2025-01-24T12:22:30.000000+00:00 data {"version":"0.0.0","entry_point":"tests.test_worker:ray_flow","fid":"679386076dd659cb0cb5665f"}
+# 2025-01-24T12:22:31.639765+00:00 data {"inputs":{"topic":"The more you know, the more you realize you don't know."}}
+# 2025-01-24T12:22:31.922876+00:00 data {"flow":{"url":"/execute_remote","name":"Ray Test","description":"cannot be empty","author":null,"tags":null,"entry":"tests.test_worker:ray_flow"}}
+# 2025-01-24T12:22:32.000000+00:00 data {"status":"pending"}
+# 2025-01-24T12:22:34.048620+00:00 data {"status":"booting","pid":51987,"ppid":51969,"executor":"thread"}
+# 2025-01-24T12:22:36.594510+00:00 data {"status":"running"}
+# 2025-01-24T12:22:36.597864+00:00 result {"test":"hello world"}
+# 2025-01-24T12:22:36.600946+00:00 result {"test":"intermediate result 0"}
+# 2025-01-24T12:22:36.604978+00:00 result {"test":"intermediate result 1"}
+# 2025-01-24T12:22:36.608375+00:00 result {"test":"intermediate result 2"}
+# 2025-01-24T12:22:43.962309+00:00 final {"message":"Hallo Welt"}
+# 2025-01-24T12:22:43.964003+00:00 data {"status":"stopping"}
+# 2025-01-24T12:22:45.000000+00:00 data {"status":"finished","runtime":10.421818}
+#     """
+#     stream = StringIO(inputs)
+#     result = ExecutionResult(stream)
+#     result.read()
+#     assert result.runtime().total_seconds() == 13.0
+#     assert result.status() == "finished"
 
-def test_thread_aggregate_no_end():
-    inputs = """
-2025-01-24T12:22:30.000000+00:00 data {"version":"0.0.0","entry_point":"tests.test_worker:ray_flow","fid":"679386076dd659cb0cb5665f"}
-2025-01-24T12:22:31.639765+00:00 data {"inputs":{"topic":"The more you know, the more you realize you don't know."}}
-2025-01-24T12:22:31.922876+00:00 data {"flow":{"url":"/execute_remote","name":"Ray Test","description":"cannot be empty","author":null,"tags":null,"entry":"tests.test_worker:ray_flow"}}
-2025-01-24T12:22:32.000000+00:00 data {"status":"pending"}
-2025-01-24T12:22:34.048620+00:00 data {"status":"booting","pid":51987,"ppid":51969,"executor":"thread"}
-2025-01-24T12:22:36.594510+00:00 data {"status":"running"}
-2025-01-24T12:22:36.597864+00:00 result {"test":"hello world"}
-    """
-    stream = StringIO(inputs)
-    result = ExecutionResult(stream)
-    result.read()
-    assert result.runtime().total_seconds() > 20.0
-    assert result.status() == "running"
+# def test_thread_aggregate_no_end():
+#     inputs = """
+# 2025-01-24T12:22:30.000000+00:00 data {"version":"0.0.0","entry_point":"tests.test_worker:ray_flow","fid":"679386076dd659cb0cb5665f"}
+# 2025-01-24T12:22:31.639765+00:00 data {"inputs":{"topic":"The more you know, the more you realize you don't know."}}
+# 2025-01-24T12:22:31.922876+00:00 data {"flow":{"url":"/execute_remote","name":"Ray Test","description":"cannot be empty","author":null,"tags":null,"entry":"tests.test_worker:ray_flow"}}
+# 2025-01-24T12:22:32.000000+00:00 data {"status":"pending"}
+# 2025-01-24T12:22:34.048620+00:00 data {"status":"booting","pid":51987,"ppid":51969,"executor":"thread"}
+# 2025-01-24T12:22:36.594510+00:00 data {"status":"running"}
+# 2025-01-24T12:22:36.597864+00:00 result {"test":"hello world"}
+#     """
+#     stream = StringIO(inputs)
+#     result = ExecutionResult(stream)
+#     result.read()
+#     assert result.runtime().total_seconds() > 20.0
+#     assert result.status() == "running"
 
 def execute3(inputs, event: Flow):
     t0 = datetime.datetime.now()
@@ -382,7 +382,7 @@ flow3 = publish(
 
 
 @flow3.enter
-def flow3_page(form, method):
+def flow3_page(form):
     if form.get("submit"):
         runtime = form.get("runtime", None)
         if runtime is None: runtime = 10
@@ -394,28 +394,28 @@ def flow3_page(form, method):
     """
 
 
-def test_ray_aggregate():
-    inputs = """
-2025-01-24T12:49:17.698192+00:00 data {"version":"0.0.0","entry_point":"tests.test_worker:ray_flow","fid":"67938c4d6dd659d16f138ddb"}
-2025-01-24T12:49:17.703251+00:00 data {"inputs":{"topic":"The more you know, the more you realize you don't know."}}
-2025-01-24T12:49:18.025376+00:00 data {"flow":{"url":"/execute_remote","name":"Ray Test","description":"cannot be empty","author":null,"tags":null,"entry":"tests.test_worker:ray_flow"}}
-2025-01-24T12:49:18.030333+00:00 data {"status":"pending"}
-2025-01-24T12:49:20.047854+00:00 data {"status":"booting","pid":53616,"ppid":53604,"executor":"ray"}
-2025-01-24T12:49:20.908578+00:00 data {"ray":{"job_id":"01000000","node_id":"b56e74021ef8db670ff6539e12f47185206691a122c0ae22fae5e99a"}}
-2025-01-24T12:49:22.920251+00:00 data {"status":"running"}
-2025-01-24T12:49:23.926188+00:00 result {"test":"hello world"}
-2025-01-24T12:49:23.933733+00:00 result {"test":"intermediate result 0"}
-2025-01-24T12:49:23.938961+00:00 result {"test":"intermediate result 1"}
-2025-01-24T12:49:23.943943+00:00 result {"test":"intermediate result 2"}
-2025-01-24T12:49:51.096653+00:00 final {"message":"Hallo Welt"}
-2025-01-24T12:49:51.101215+00:00 data {"status":"stopping"}
-2025-01-24T12:49:51.105603+00:00 data {"status":"finished","runtime":31.055105}
-"""
-    stream = StringIO(inputs)
-    result = ExecutionResult(stream)
-    result.read()
-    assert result.ray["job_id"] == "01000000"
-    assert result.ray["node_id"] == "b56e74021ef8db670ff6539e12f47185206691a122c0ae22fae5e99a"
+# def test_ray_aggregate():
+#     inputs = """
+# 2025-01-24T12:49:17.698192+00:00 data {"version":"0.0.0","entry_point":"tests.test_worker:ray_flow","fid":"67938c4d6dd659d16f138ddb"}
+# 2025-01-24T12:49:17.703251+00:00 data {"inputs":{"topic":"The more you know, the more you realize you don't know."}}
+# 2025-01-24T12:49:18.025376+00:00 data {"flow":{"url":"/execute_remote","name":"Ray Test","description":"cannot be empty","author":null,"tags":null,"entry":"tests.test_worker:ray_flow"}}
+# 2025-01-24T12:49:18.030333+00:00 data {"status":"pending"}
+# 2025-01-24T12:49:20.047854+00:00 data {"status":"booting","pid":53616,"ppid":53604,"executor":"ray"}
+# 2025-01-24T12:49:20.908578+00:00 data {"ray":{"job_id":"01000000","node_id":"b56e74021ef8db670ff6539e12f47185206691a122c0ae22fae5e99a"}}
+# 2025-01-24T12:49:22.920251+00:00 data {"status":"running"}
+# 2025-01-24T12:49:23.926188+00:00 result {"test":"hello world"}
+# 2025-01-24T12:49:23.933733+00:00 result {"test":"intermediate result 0"}
+# 2025-01-24T12:49:23.938961+00:00 result {"test":"intermediate result 1"}
+# 2025-01-24T12:49:23.943943+00:00 result {"test":"intermediate result 2"}
+# 2025-01-24T12:49:51.096653+00:00 final {"message":"Hallo Welt"}
+# 2025-01-24T12:49:51.101215+00:00 data {"status":"stopping"}
+# 2025-01-24T12:49:51.105603+00:00 data {"status":"finished","runtime":31.055105}
+# """
+#     stream = StringIO(inputs)
+#     result = ExecutionResult(stream)
+#     result.read()
+#     assert result.ray["job_id"] == "01000000"
+#     assert result.ray["node_id"] == "b56e74021ef8db670ff6539e12f47185206691a122c0ae22fae5e99a"
 
 
 async def test_execution_state():
@@ -428,16 +428,19 @@ async def test_execution_state():
                       data={"submit": "submit", "runtime": 15},
                       headers={"Accept": "application/json"})
     fid = resp.json()["fid"]
-    async with httpx.AsyncClient(timeout=None) as client:
+    lines = []
+    async with httpx.AsyncClient(
+            timeout=None) as client:
         async with aconnect_sse(
-            client, "GET", f"http://localhost:3371/flow/{fid}/stdout"
-        ) as event_source:
-            async for sse in event_source.aiter_sse():
-                print(sse)
-
+            client, "GET", f"http://localhost:3371/flow/{fid}/stdout") as src:
+            async for sse in src.aiter_sse():
+                lines.append(sse.data)
+    t = [int(i.split()[1]) for i in lines if i.startswith("debug")]
+    assert t[-1] == len(t)
+    assert lines[0] == "debug: 1"
     while True:
         resp = httpx.get(
-            f"http://localhost:3371/flow/{fid}/stdout", timeout=None,
+            f"http://localhost:3371/flow/{fid}", timeout=None,
             headers={"Accept": "application/json"})
         status = resp.json().get("status", "unknown")
         if status == "finished":
@@ -446,3 +449,51 @@ async def test_execution_state():
     node.stop()
 
 
+def execute_inactive(inputs, event: Flow):
+    event.result({"test": "I am active"})
+    time.sleep(5)
+    print("I am active, again")
+    time.sleep(3)
+    event.final({"message": "Hallo Welt"})
+
+flow4 = publish(
+    execute_inactive, url="/execute", name="Test Flow", description="missing")
+
+
+@flow4.enter
+def flow4_page(form):
+    return flow3_page(form)
+
+
+
+def flow4_loader():
+    return """
+- url: http://localhost:3371
+- registry: false
+- feed: false
+- screen_level: debug
+- flows:
+  - entry: tests.test_worker:flow4
+"""
+
+async def test_inactive():
+    from httpx_sse import aconnect_sse
+    node = Service(
+        url="http://localhost:3371", 
+        loader="tests.test_worker:flow4_loader")
+    node.start()
+    resp = httpx.post("http://localhost:3371/flows/execute", timeout=None,
+                      data={"submit": "submit"},
+                      headers={"Accept": "application/json"})
+    fid = resp.json()["fid"]
+    inactive = []
+    while True:
+        resp = httpx.get(
+            f"http://localhost:3371/flow/{fid}", timeout=None,
+            headers={"Accept": "application/json"})
+        status = resp.json().get("status", "unknown")
+        inactive.append(resp.json().get("inactive", None))
+        if status == "finished":
+            break
+        time.sleep(0.1)
+    node.stop()

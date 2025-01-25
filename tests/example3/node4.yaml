@@ -29,3 +29,11 @@
     tags:
     - test
     - crewai
+  - entry: tests.test_worker:flow4
+    url: /flow4
+    name: inactive 5 then 3
+    description: be inactive for 5 seconds then for 3 seconds
+    author: dagobert.duck@web.de
+    tags:
+    - test
+    - function

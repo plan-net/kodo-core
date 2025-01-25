@@ -87,7 +87,17 @@ class ExecutionResult:
             t1 = self._findtime("finished", "error") or now
             return (t1 - t0).total_seconds()
         return None
-
+    
+    def inactive_time(self):
+        if self.status() not in ("finished", "error"):
+            files = [self.stdout_file, self.stderr_file, self.event_file]
+            last_modified = datetime.datetime.fromtimestamp(
+                max(file.stat().st_mtime for file in files)
+            )
+            now = datetime.datetime.now().replace(tzinfo=None)
+            return (now - last_modified).total_seconds()
+        return None
+    
     def status(self):
         if self._status:
             return self._status[-1]["value"]
@@ -109,6 +119,7 @@ class ExecutionResult:
                     yield {"data": line.rstrip(), "event": "line"}
             else:
                 if self.stop_file.exists():
+                    yield {"data": "process closed", "event": "eof"}
                     break
                 await asyncio.sleep(0.1)
         fh.close()

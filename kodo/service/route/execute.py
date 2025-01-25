@@ -75,7 +75,8 @@ class ExecutionControl(kodo.service.controller.Controller):
             "executor": result.executor,
             "ray": result.ray,
             "stdout": file_size(result.stdout_file),
-            "stderr": file_size(result.stderr_file)
+            "stderr": file_size(result.stderr_file),
+            "inactive": result.inactive_time()
         })
 
     @get("/{fid:str}/stdout")
