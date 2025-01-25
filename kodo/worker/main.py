@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,13 @@ if __name__ == "__main__":
     if mode == MODE.DISCOVER:
         worker = FlowDiscovery(factory)
     elif mode == MODE.EXECUTE:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+        os.setsid()
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
         worker = FlowExecution(factory, Path(exec_path), fid)
     elif mode in (MODE.ENTER, MODE.LAUNCH):
         worker = FlowAction(factory, Path(exec_path))
