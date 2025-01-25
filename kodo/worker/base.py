@@ -8,6 +8,7 @@ EVENT_STREAM = "event.log"
 STDOUT_FILE = "stdout.log"
 STDERR_FILE = "stderr.log"
 STOP_FILE = "_done_"
+KILL_FILE = "_killed_"
 IPC_MODULE = "kodo.worker.main"
 FIX = "@_ks_@"
 

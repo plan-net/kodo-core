@@ -14,18 +14,6 @@
                     <a href="/flow/{{ result.fid }}">
                         {{ result.fid }}
                     </a>
-                    -
-                    <a href="/flow/{{ result.fid }}/event">
-                        event
-                    </a>
-                    -
-                    <a href="/flow/{{ result.fid }}/stdout">
-                        out
-                    </a>
-                    -
-                    <a href="/flow/{{ result.fid }}/stderr">
-                        err
-                    </a>
                 </td>
             </tr>
             <tr>
@@ -44,6 +32,22 @@
                 <th>Homepage</th>
                 <td>
                     <a href="{{ url }}">{{ url }}</a>
+                </td>
+            </tr>
+            <tr>
+                <th>RESULT</th>
+                <td>
+                    <a href="/flow/{{ result.fid }}/event">event</a>
+                    | <a href="/flow/{{ result.fid }}/stdout">stdout</a>
+                    | <a href="/flow/{{ result.fid }}/stderr">stderr</a>
+                </td>
+            </tr>
+            <tr>
+                <th>ACTION</th>
+                <td>
+                    <a href="#" hx-delete="/flow/{{ result.fid }}">
+                        kill the job
+                    </a>
                 </td>
             </tr>
         </tbody>

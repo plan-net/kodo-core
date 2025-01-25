@@ -1,12 +1,14 @@
 from pathlib import Path
 from typing import Literal, Optional, Union
 
+import psutil
 from bson import ObjectId
-from litestar import Response, get
+from litestar import Response, delete, get
 from litestar.datastructures import State
 from litestar.response import ServerSentEvent, Template
 
 import kodo.service.controller
+from kodo.log import logger
 from kodo.worker.result import ExecutionResult
 
 
@@ -94,4 +96,23 @@ class ExecutionControl(kodo.service.controller.Controller):
     @get("/{fid:str}/event")
     async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
         result = ExecutionResult(state, fid)
+        result.read()
         return ServerSentEvent(await result.stream_event())
+
+    @delete("/{fid:str}")
+    async def kill_flow(self, state: State, fid: str) -> None:
+        result = ExecutionResult(state, fid)
+        result.read()
+        logger.warning(f"request to kill flow {fid} with pid {result.pid}")
+        try:
+            proc = psutil.Process(result.pid)
+            if proc.is_running():
+                result.kill()
+                for child in proc.children(recursive=True):
+                    logger.warning(f"kill child {child.pid}")
+                    child.terminate()
+                proc.terminate()
+                logger.warning(f"killed flow {fid} with pid {result.pid}")
+        except:
+            logger.error(f"failed to kill flow {fid}")
+

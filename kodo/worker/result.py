@@ -10,7 +10,8 @@ from litestar.types import SSEData
 
 from kodo import helper
 from kodo.datatypes import DynamicModel, Flow
-from kodo.worker.base import EVENT_STREAM, STDERR_FILE, STDOUT_FILE, STOP_FILE
+from kodo.worker.base import (EVENT_STREAM, KILL_FILE, STDERR_FILE,
+                              STDOUT_FILE, STOP_FILE)
 
 
 class ExecutionResult:
@@ -21,11 +22,15 @@ class ExecutionResult:
         self.stdout_file = folder.joinpath(STDOUT_FILE)
         self.stderr_file = folder.joinpath(STDERR_FILE)
         self.stop_file = folder.joinpath(STOP_FILE)
+        self.kill_file = folder.joinpath(KILL_FILE)
         self._state = state
         self._data: Dict = {}
         self._status: List = []
         self._result: List = []
         self.flow: Any = None
+
+    def kill(self):
+        self.kill_file.touch()
 
     def read(self):
         fh = self.event_file.open("r")
@@ -120,6 +125,9 @@ class ExecutionResult:
             else:
                 if self.stop_file.exists():
                     yield {"data": "process closed", "event": "eof"}
+                    break
+                elif self.kill_file.exists():
+                    yield {"data": "process killed", "event": "eof"}
                     break
                 await asyncio.sleep(0.1)
         fh.close()
