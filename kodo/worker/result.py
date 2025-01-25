@@ -1,22 +1,35 @@
-from typing import Union, List, Dict
-from pathlib import Path
-from io import TextIOWrapper
+import asyncio
 import datetime
-from kodo.datatypes import DynamicModel, Flow
+from collections.abc import AsyncGenerator
+from pathlib import Path
+from typing import Any, Dict, List, Union
+
+from bson.objectid import ObjectId
+from litestar.datastructures import State
+from litestar.types import SSEData
+
 from kodo import helper
+from kodo.datatypes import DynamicModel, Flow
+from kodo.worker.base import EVENT_STREAM, STDERR_FILE, STDOUT_FILE, STOP_FILE
 
 
 class ExecutionResult:
 
-    def __init__(self, file: TextIOWrapper):
-        self.event_file = file
+    def __init__(self, state: State, fid: Union[str, ObjectId]):
+        folder = Path(state.exec_data).joinpath(str(fid))
+        self.event_file = folder.joinpath(EVENT_STREAM)
+        self.stdout_file = folder.joinpath(STDOUT_FILE)
+        self.stderr_file = folder.joinpath(STDERR_FILE)
+        self.stop_file = folder.joinpath(STOP_FILE)
+        self._state = state
         self._data: Dict = {}
         self._status: List = []
         self._result: List = []
-        self.flow = None
+        self.flow: Any = None
 
     def read(self):
-        for line in self.event_file:
+        fh = self.event_file.open("r")
+        for line in fh:
             line = line.rstrip()
             if not line:
                 continue
@@ -39,14 +52,72 @@ class ExecutionResult:
     def __getattr__(self, name):
         return self._data.get(name, None)
     
-    def runtime(self):
+    def _findtime(self, *args):
+        for stat in self._status:
+            if stat["value"] in args:
+                return stat["timestamp"]
+        return None
+
+    def tearup(self):
         if self._status:
             t0 = self._status[0]["timestamp"]
-            if self._status[-1]["value"] not in ("finished", "error"):
-                return helper.now() - t0
-            return self._status[-1]["timestamp"] - t0
-        
+            t1 = self._findtime("running") or helper.now()
+            return (t1 - t0).total_seconds()
+        return None
+
+    def teardown(self):
+        if self._status:
+            t0 = self._findtime("stopping")
+            if t0:
+                t1 = self._status[-1]["timestamp"]
+                return (t1 - t0).total_seconds()
+        return None
+
+    def runtime(self):
+        t0 = self._findtime("running")
+        if t0:
+            t1 = self._findtime("stopping") or helper.now()
+            return (t1 - t0).total_seconds()
+        return None
+
+    def total_time(self):
+        if self._status:
+            now = helper.now()
+            t0 = self._status[0]["timestamp"] or now
+            t1 = self._findtime("finished", "error") or now
+            return (t1 - t0).total_seconds()
+        return None
+
     def status(self):
         if self._status:
             return self._status[-1]["value"]
         return None
+
+    async def _stream(self, 
+                      file: Path, 
+                      resolve: bool=False) -> AsyncGenerator[SSEData, None]:
+        fh = file.open("r")
+        while not self._state.exit:
+            line = fh.readline()
+            if line:
+                if resolve:
+                    timestamp, action, data = line.split(" ", 2)
+                    yield {
+                        "data": timestamp + ': ' + data.rstrip(), 
+                        "event": action}
+                else:
+                    yield {"data": line.rstrip(), "event": "line"}
+            else:
+                if self.stop_file.exists():
+                    break
+                await asyncio.sleep(0.1)
+        fh.close()
+
+    async def stream_stdout(self) -> AsyncGenerator[SSEData, None]:
+        return self._stream(self.stdout_file)
+
+    async def stream_stderr(self) -> AsyncGenerator[SSEData, None]:
+        return self._stream(self.stderr_file)
+
+    async def stream_event(self) -> AsyncGenerator[SSEData, None]:
+        return self._stream(self.event_file, resolve=True)

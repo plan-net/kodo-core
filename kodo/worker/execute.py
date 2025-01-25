@@ -61,6 +61,7 @@ class FlowExecution(FlowProcess):
         t1 = helper.now()
         self._ev_write("data", 
             dict(status=status, runtime=(t1 - t0).total_seconds()))
+        self.create_stop_file()
 
     def run_ray(self) -> bool:
         try:

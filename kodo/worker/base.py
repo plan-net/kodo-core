@@ -7,6 +7,7 @@ from kodo.datatypes import DynamicModel, WorkerMode
 EVENT_STREAM = "event.log"
 STDOUT_FILE = "stdout.log"
 STDERR_FILE = "stderr.log"
+STOP_FILE = "_done_"
 IPC_MODULE = "kodo.worker.main"
 FIX = "@_ks_@"
 
@@ -44,4 +45,8 @@ class FlowProcess:
     def communicate(self, mode: Union[WorkerMode, str]) -> None:
         raise NotImplementedError()
 
+    def create_stop_file(self) -> None:
+        if self.fid and isinstance(self.exec_path, Path):
+            stop_file = self.exec_path.joinpath(str(self.fid), STOP_FILE)
+            stop_file.touch()
 

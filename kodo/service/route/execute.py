@@ -1,15 +1,14 @@
+from pathlib import Path
 from typing import Literal, Optional, Union
 
-from litestar import Request, Response, get
-from litestar.datastructures import State
-from litestar.response import Template
-import os
 from bson import ObjectId
-from pathlib import Path
+from litestar import Response, get
+from litestar.datastructures import State
+from litestar.response import ServerSentEvent, Template
 
 import kodo.service.controller
-from kodo.worker.base import EVENT_STREAM, STDERR_FILE, STDOUT_FILE
 from kodo.worker.result import ExecutionResult
+
 
 class ExecutionControl(kodo.service.controller.Controller):
     path = "/flow"
@@ -55,26 +54,41 @@ class ExecutionControl(kodo.service.controller.Controller):
             fid: str,
             format: Optional[Literal["json", "html"]] = None) -> Union[
                 Response, Template]:
-        oid = ObjectId(fid)
-        folder = Path(state.exec_data).joinpath(fid)
-        ev_file = folder.joinpath(EVENT_STREAM)
-        stdout_file = folder.joinpath(STDOUT_FILE)
-        stderr_file = folder.joinpath(STDERR_FILE)
-        ev_data = ExecutionResult(ev_file.open("r"))
-        ev_data.read()
-        assert ev_data.flow
+        fid = ObjectId(fid)
+        result = ExecutionResult(state, fid)
+        result.read()
+        assert result.flow
+
         def file_size(file: Path) -> Union[int, None]:
             return file.stat().st_size if file.exists() else None
 
         return Response(content={
-            "status": ev_data.status(),
-            "runtime": ev_data.runtime().total_seconds(),
-            "version": ev_data.version,
-            "entry_point": ev_data.entry_point,
-            "flow": ev_data.flow.model_dump(),
-            "fid": ev_data.fid,
-            "executor": ev_data.executor,
-            "ray": ev_data.ray,
-            "stdout": file_size(stdout_file),
-            "stderr": file_size(stderr_file)
+            "status": result.status(),
+            "total": result.total_time(),
+            "bootup": result.tearup(),
+            "runtime": result.runtime(),
+            "teardown": result.teardown(),
+            "version": result.version,
+            "entry_point": result.entry_point,
+            "flow": result.flow.model_dump(),
+            "fid": result.fid,
+            "executor": result.executor,
+            "ray": result.ray,
+            "stdout": file_size(result.stdout_file),
+            "stderr": file_size(result.stderr_file)
         })
+
+    @get("/{fid:str}/stdout")
+    async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:
+        result = ExecutionResult(state, fid)
+        return ServerSentEvent(await result.stream_stdout())
+    
+    @get("/{fid:str}/stderr")
+    async def stream_stderr(self, state: State, fid: str) -> ServerSentEvent:
+        result = ExecutionResult(state, fid)
+        return ServerSentEvent(await result.stream_stderr())
+
+    @get("/{fid:str}/event")
+    async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
+        result = ExecutionResult(state, fid)
+        return ServerSentEvent(await result.stream_event())

@@ -11,7 +11,21 @@
             <tr>
                 <th>FLow ID</th>
                 <td>
-                    {{ result.fid }}
+                    <a href="/flow/{{ result.fid }}">
+                        {{ result.fid }}
+                    </a>
+                    -
+                    <a href="/flow/{{ result.fid }}/event">
+                        event
+                    </a>
+                    -
+                    <a href="/flow/{{ result.fid }}/stdout">
+                        out
+                    </a>
+                    -
+                    <a href="/flow/{{ result.fid }}/stderr">
+                        err
+                    </a>
                 </td>
             </tr>
             <tr>

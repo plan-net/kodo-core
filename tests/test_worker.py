@@ -416,3 +416,33 @@ def test_ray_aggregate():
     result.read()
     assert result.ray["job_id"] == "01000000"
     assert result.ray["node_id"] == "b56e74021ef8db670ff6539e12f47185206691a122c0ae22fae5e99a"
+
+
+async def test_execution_state():
+    from httpx_sse import aconnect_sse
+    node = Service(
+        url="http://localhost:3371", 
+        loader="tests/example3/node4.yaml")
+    node.start()
+    resp = httpx.post("http://localhost:3371/flows/flow1", timeout=None,
+                      data={"submit": "submit", "runtime": 15},
+                      headers={"Accept": "application/json"})
+    fid = resp.json()["fid"]
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with aconnect_sse(
+            client, "GET", f"http://localhost:3371/flow/{fid}/stdout"
+        ) as event_source:
+            async for sse in event_source.aiter_sse():
+                print(sse)
+
+    while True:
+        resp = httpx.get(
+            f"http://localhost:3371/flow/{fid}/stdout", timeout=None,
+            headers={"Accept": "application/json"})
+        status = resp.json().get("status", "unknown")
+        if status == "finished":
+            break
+        time.sleep(0.1)
+    node.stop()
+
+
