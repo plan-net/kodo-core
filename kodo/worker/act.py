@@ -12,7 +12,8 @@ import kodo.error
 from kodo import helper
 from kodo.common import Launch
 from kodo.datatypes import MODE, Flow, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import EVENT_STREAM, IPC_MODULE, STDERR_FILE, STDOUT_FILE
+from kodo.worker.base import (EVENT_STREAM, IPC_MODULE, PENDING_STATE,
+                              STDERR_FILE, STDOUT_FILE)
 from kodo.worker.loader import FlowDiscovery
 
 
@@ -41,7 +42,7 @@ class FlowAction(FlowDiscovery):
         event_data = self.exec_path.joinpath(str(self.fid))
         self.event_log = event_data.joinpath(EVENT_STREAM)
         self._ev_write("data", {"flow": flow.model_dump()})
-        self._ev_write("data", dict(status="pending"))
+        self._ev_write("data", dict(status=PENDING_STATE))
         environ = os.environ.copy()
         stdout_log = event_data.joinpath(STDOUT_FILE)
         stderr_log = event_data.joinpath(STDERR_FILE)

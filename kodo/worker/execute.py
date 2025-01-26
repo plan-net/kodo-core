@@ -1,8 +1,7 @@
 import os
 import time
 import traceback
-from multiprocessing import Process
-from multiprocessing import Queue as M_Queue
+from multiprocessing import Process, Queue as M_Queue
 from pathlib import Path
 from typing import Union
 
@@ -12,17 +11,18 @@ from ray.util.queue import Queue as R_Queue
 
 from kodo import helper
 from kodo.datatypes import InternalOption, WorkerMode
-from kodo.worker.base import FlowProcess
+from kodo.worker.base import (BOOTING_STATE, ERROR_STATE, FINISHED_STATE,
+                              RUNNING_STATE, STOPPING_STATE, FlowProcess)
 from kodo.worker.flow import flow_factory
 
 
 def _execute(event_stream_file: Path, event):
     try:
-        event.put(("data", {"status": "running"}))
+        event.put(("data", {"status": RUNNING_STATE}))
         flow = flow_factory(event_stream_file, event)
         flow.instrument()
         result = flow.run()  # type: ignore
-        event.put(("data", {"status": "stopping"}))
+        event.put(("data", {"status": STOPPING_STATE}))
         flow.finish(result)
     except Exception as exc:
         event.put(("error", {"exception": traceback.format_exc()}))
@@ -48,16 +48,16 @@ class FlowExecution(FlowProcess):
         status = None
         self._ev_write("data", 
             dict(
-                status="booting", 
+                status=BOOTING_STATE, 
                 pid=os.getpid(), 
                 ppid=os.getppid(),
                 executor="ray" if option.RAY else "thread"
             ))
         success = self.run_ray() if option.RAY else self.run_process()
         if success:
-            status = "finished"
+            status = FINISHED_STATE
         else:
-            status = "error"
+            status = ERROR_STATE
         t1 = helper.now()
         self._ev_write("data", 
             dict(status=status, runtime=(t1 - t0).total_seconds()))

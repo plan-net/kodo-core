@@ -12,6 +12,15 @@ KILL_FILE = "_killed_"
 IPC_MODULE = "kodo.worker.main"
 FIX = "@_ks_@"
 
+PENDING_STATE = "pending"
+BOOTING_STATE = "booting"
+RUNNING_STATE = "running"
+STOPPING_STATE = "stopping"
+FINISHED_STATE = "finished"
+ERROR_STATE = "error"
+DIED_STATE = "died"
+FINAL_STATE = (FINISHED_STATE, ERROR_STATE, DIED_STATE)
+
 
 class FlowProcess:
 

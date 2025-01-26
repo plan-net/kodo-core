@@ -4,14 +4,17 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
+import psutil
 from bson.objectid import ObjectId
 from litestar.datastructures import State
 from litestar.types import SSEData
 
 from kodo import helper
 from kodo.datatypes import DynamicModel, Flow
-from kodo.worker.base import (EVENT_STREAM, KILL_FILE, STDERR_FILE,
-                              STDOUT_FILE, STOP_FILE)
+from kodo.log import logger
+from kodo.worker.base import (DIED_STATE, EVENT_STREAM, FINAL_STATE, KILL_FILE,
+                              RUNNING_STATE, STDERR_FILE, STDOUT_FILE,
+                              STOP_FILE, STOPPING_STATE)
 
 
 class ExecutionResult:
@@ -53,6 +56,16 @@ class ExecutionResult:
                         self.flow = Flow(**v)
                     else:
                         self._data[k] = v
+        status = self.status()
+        if status not in FINAL_STATE:
+            if not self.check_alive():
+                with open(self.event_file, "a") as f:  # type: ignore
+                    dump = DynamicModel(
+                        {"status": DIED_STATE}).model_dump_json()
+                    now = helper.now()
+                    f.write(f"{now.isoformat()} data {dump}\n")
+                    self._status.append({
+                        "timestamp": now, "value": DIED_STATE})
 
     def __getattr__(self, name):
         return self._data.get(name, None)
@@ -66,22 +79,22 @@ class ExecutionResult:
     def tearup(self):
         if self._status:
             t0 = self._status[0]["timestamp"]
-            t1 = self._findtime("running") or helper.now()
+            t1 = self._findtime(RUNNING_STATE) or helper.now()
             return (t1 - t0).total_seconds()
         return None
 
     def teardown(self):
         if self._status:
-            t0 = self._findtime("stopping")
+            t0 = self._findtime(STOPPING_STATE)
             if t0:
                 t1 = self._status[-1]["timestamp"]
                 return (t1 - t0).total_seconds()
         return None
 
     def runtime(self):
-        t0 = self._findtime("running")
+        t0 = self._findtime(RUNNING_STATE)
         if t0:
-            t1 = self._findtime("stopping") or helper.now()
+            t1 = self._findtime(STOPPING_STATE, DIED_STATE) or helper.now()
             return (t1 - t0).total_seconds()
         return None
 
@@ -89,12 +102,12 @@ class ExecutionResult:
         if self._status:
             now = helper.now()
             t0 = self._status[0]["timestamp"] or now
-            t1 = self._findtime("finished", "error") or now
+            t1 = self._findtime(*FINAL_STATE) or now
             return (t1 - t0).total_seconds()
         return None
     
     def inactive_time(self):
-        if self.status() not in ("finished", "error"):
+        if self.status() not in FINAL_STATE:
             files = [self.stdout_file, self.stderr_file, self.event_file]
             last_modified = datetime.datetime.fromtimestamp(
                 max(file.stat().st_mtime for file in files)
@@ -108,14 +121,31 @@ class ExecutionResult:
             return self._status[-1]["value"]
         return None
 
+    def check_alive(self):
+        try:
+            proc = psutil.Process(self.pid)
+            if proc.is_running():
+                return True
+        except:
+            logger.error(
+                f"flow {self.fid}, pid {self.pid} died")
+            return False
+
     async def _stream(self, 
                       file: Path, 
-                      resolve: bool=False) -> AsyncGenerator[SSEData, None]:
+                      split: bool=False) -> AsyncGenerator[SSEData, None]:
+        self.read()
         fh = file.open("r")
+        next_check = helper.now() + datetime.timedelta(seconds=5)
         while not self._state.exit:
+            if helper.now() > next_check:
+                next_check = helper.now() + datetime.timedelta(seconds=5)
+                if not self.check_alive():
+                    yield {"data": "process died", "event": "eof"}
+                    break
             line = fh.readline()
             if line:
-                if resolve:
+                if split:
                     timestamp, action, data = line.split(" ", 2)
                     yield {
                         "data": timestamp + ': ' + data.rstrip(), 
@@ -139,4 +169,4 @@ class ExecutionResult:
         return self._stream(self.stderr_file)
 
     async def stream_event(self) -> AsyncGenerator[SSEData, None]:
-        return self._stream(self.event_file, resolve=True)
+        return self._stream(self.event_file, split=True)
