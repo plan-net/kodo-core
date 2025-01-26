@@ -14,15 +14,17 @@ def cli():
 @click.option("-C", "--connect", multiple=True,
               help="registry URL to connect to, use multiple times")
 @click.option("-o", "--organization", help="organization")
-@click.option("-R", "--registry", is_flag=True, default=None, 
+@click.option("-R", "--registry/--no-registry", is_flag=True, default=None, 
               help="registry mode")
-@click.option("-f", "--feed", is_flag=True, default=None, 
+@click.option("-f", "--feed/--no-feed", is_flag=True, default=None, 
               help="registry feed mode")
-@click.option("-c", "--reset", is_flag=True, default=None, 
+@click.option("-c", "--reset/--no-reset", is_flag=True, default=None, 
               help="reset cache")
 @click.option("-d", "--cache-file", help="cache file")
-@click.option("-r", "--reload", is_flag=True, default=None, help="reload mode")
-@click.option("-y", "--ray", is_flag=True, default=None, help="use ray")
+@click.option("-r", "--reload/--no-relad", is_flag=True, default=None, 
+              help="reload mode")
+@click.option("-y", "--ray/--no-ray", is_flag=True, default=None, 
+              help="use ray")
 @click.option("-e", "--retry", type=int, help="retry count")
 @click.option("-l", "--level", type=click.Choice(
      ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'FATAL'],
