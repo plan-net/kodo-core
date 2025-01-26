@@ -1,73 +1,55 @@
 {% extends "_main.html" %}
 
 {% block head %}
-<style>
-    body {
-        grid-template-columns: 1fr 95% 1fr;
-    }
-    .spin {
-        animation: spin 2s linear infinite;
-    }
-    @keyframes spin {
-        from {transform: rotate(0deg);}
-        to {transform: rotate(360deg);}
-    }
-  </style>
-  <meta http-equiv="refresh" content="1">
+    <style>
+        body {
+            grid-template-columns: 1fr 95% 1fr;
+        }
+    </style>
 {% endblock %}
 
 {% block header %}
-    <h1>Execution List</h1>
+    <h1>Flow Explorer</h1>
 {% endblock %}
 
 {% block content %}
-
     <table width="100%">
         <tbody>
             <tr>
-                <th>&nbsp;</th>
-                <th>Flow</th>
-                <th>Status</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Total Time</th>
-                <th>Inactive</th>
-                <th>&nbsp;</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Author</th>
+                <th>Tags</th>
+                <th>Created</th>
+                <th>Modified</th>
             </tr>
             {% for item in result %}
             <tr>
                 <td>
-                    <a target="_blank" href="/flow/{{item["fid"]}}/"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/></svg></a>
-                    <a target="_blank" href="/flow/{{item["fid"]}}/stdout"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg></a>
-                    <a target="_blank" href="/flow/{{item["fid"]}}/stderr"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-x"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg></a>
-                    <a target="_blank" href="/flow/{{item["fid"]}}/event"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-percent"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></a>
+                    <a target="_blank" href="{{ item["url"] }}">
+                        {{ item["name"] }}
+                    </a>
                 </td>
-                <td>{{ item["flow"].name }}</td>
-                <td>{{ item["status"] }}</td>
-                <td>{{ item["start_time"] }}</td>
-                <td>{{ item["end_time"] if item["end_time"] else "-" }}</td>
-                <td>{{ item["total"] }}</td>
-                <td>{{ item["inactive"] or "-" }}</td>
+                <td>{{ item["description"] }}</td>
+                <td>{{ item["author"] }}</td>
                 <td>
-                    {% if item["alive"] %}
-                    <a href="#" hx-delete="/flow/{{ item["fid"]}}/kill"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-ccw spin"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></a>
-                    {% else %}
-                    <a href="#" hx-delete="/flow/{{ item["fid"]}}/remove"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></a>
-                    {% endif %}
-                </td>
+                    {% for tag in item["tags"] %}
+                        <mark>{{ tag }}</mark>
+                    {% endfor %}
+                <td>{{ item["created"].strftime("%Y-%m-%d %H:%M") }}</td>
+                <td>{{ item["modified"].strftime("%Y-%m-%d %H:%M") }}</td>
             </tr>
             {% endfor %}
-
         </tbody>
-    </table>
+      </table>
     <p>
-        <a href="?p=0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-first"><path d="m17 18-6-6 6-6"/><path d="M7 6v12"/></svg></a>
+        <a href="?pp={{pp}}&p=0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-first"><path d="m17 18-6-6 6-6"/><path d="M7 6v12"/></svg></a>
 
-        <a href="?p={{ 0 if p == 0 else p - 1 }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg></a>
+        <a href="?pp={{pp}}&p={{ 0 if p == 0 else p - 1 }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg></a>
         
-        <a href="?p={{ (total + pp - 1) // pp - 1 if p == (total + pp - 1) // pp - 1 else p + 1 | int }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg></a>
+        <a href="?pp={{pp}}&p={{ (total + pp - 1) // pp - 1 if p == (total + pp - 1) // pp - 1 else p + 1 | int }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg></a>
 
-        <a href="?p={{ (total + pp - 1) // pp - 1 | int}}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-last"><path d="m7 18 6-6-6-6"/><path d="M17 6v12"/></svg></a>
+        <a href="?pp={{pp}}&p={{ (total + pp - 1) // pp - 1 | int}}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-last"><path d="m7 18 6-6-6-6"/><path d="M17 6v12"/></svg></a>
     </p>
 {% endblock %}
 

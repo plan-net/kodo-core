@@ -39,12 +39,12 @@
   </header>
   <main>
     {% block content %}{% endblock %}
-    {% if result is not none %}
+    <!-- {% if result is not none %}
     <details>
       <summary>DEBUG</summary>
       <pre class="logging">{{result.stderr}}</pre>
     </details>
-    {% endif %}
+    {% endif %} -->
   </main>
   <footer>
     {% block footer %}{% endblock %}

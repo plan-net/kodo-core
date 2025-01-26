@@ -278,9 +278,17 @@ def stream_landing_page(form):
     topic = form.get("topic")
     if topic:
         return Launch(topic=topic)
-    return f'<input type="text" name="topic"> ' \
-           f'<input type="submit" name="submit">'
-
+    error = ""
+    if form.get("submit") and not form.get("topic"):
+        error = "<p><mark><b>Please tell me!</b></mark></p>" 
+    return f"""
+        <p>This is a simple flow which executes a function. The function
+        prints a few lines to <code>STDOUT</code> and <code>STDERR</code>.</p>
+        <p>But before we continue, tell me something about you!</p>
+        { error }
+        <input type="text" name="topic" placeholder="how are you?">
+        <input type="submit" name="submit">
+    """
 
 async def test_stream_thread():
     node = Service(
@@ -387,12 +395,14 @@ def flow3_page(form):
         runtime = form.get("runtime", None)
         if runtime is None: runtime = 10
         return Launch(runtime=runtime)
-    return """
-    Tell me how long you want me to run. I will add some time on top of that.
-    <hr/>
-    <input type="text" name="runtime"> <input type="submit" name="submit">
+    return f"""
+        <p>This flow runs for a specified time (in seconds).</p> 
+        <p>
+            Booting up and launching the flow adds a couple of seconds, though.
+        </p> 
+        <input type="text" name="runtime" placeholder="10">
+        <input type="submit" name="submit">
     """
-
 
 # def test_ray_aggregate():
 #     inputs = """

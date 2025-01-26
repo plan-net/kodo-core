@@ -7,24 +7,22 @@
 - flows:
   - entry: tests.test_worker:stream_flow
     url: /flow
-    name: Quick Test Flow
-    description: Counts to 3000
+    name: Quick Test
+    description: A simple test flow
     author: mickey.mouse@web.de
     tags:
     - test
     - function
   - entry: tests.test_worker:flow3
     url: /flow1
-    name: Print Range Flow
-    description: Custom Runtime
+    name: Runner
+    description: Define a custom runtime
     author: dagobert.duck@web.de
     tags:
     - test
     - function
   - entry: tests.simple:flow
     url: /crew
-    name: Crewai Flow
-    description: none
     author: donald.duck@web.de
     tags:
     - test

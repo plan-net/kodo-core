@@ -74,8 +74,7 @@ class FlowControl(kodo.service.controller.Controller):
             return Template(
                 template_name="explore.html",
                 context={
-                    "dataframe": df,
-                    "result": None,
+                    "result": df.to_dict("records"),
                     "total": total,
                     "filtered": filtered,
                     "p": p,
