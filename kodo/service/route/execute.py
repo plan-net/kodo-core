@@ -21,8 +21,6 @@ class ExecutionControl(kodo.service.controller.Controller):
             self,
             state: State,
             request: Request,
-            q: Optional[str] = None,
-            by: Optional[str] = None,
             pp: int = 10,
             p: int = 0,
             format: Optional[Literal["json", "html"]] = None) -> Union[
@@ -37,6 +35,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 except Exception:
                     continue
         execs.sort(reverse=True)
+        total = len(execs)
         page: List = []
         skip = p * pp
         while len(page) < pp and execs:
@@ -68,14 +67,15 @@ class ExecutionControl(kodo.service.controller.Controller):
             provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
+        ret = {
+            "result": page,
+            "total": total,
+            "p": p,
+            "pp": pp,
+        }
         if preferred_type == MediaType.JSON:
-            return Response(content=page)
-        return Template(
-            template_name="execution.html",
-            context={
-                "result": page
-            }
-        )
+            return Response(content=ret)
+        return Template(template_name="execution.html", context=ret)
 
     @get("/{fid:str}")
     async def detail(
@@ -127,7 +127,7 @@ class ExecutionControl(kodo.service.controller.Controller):
         result.read()
         return ServerSentEvent(await result.stream_event())
 
-    @delete("/{fid:str}")
+    @delete("/{fid:str}/kill")
     async def kill_flow(self, state: State, fid: str) -> None:
         result = ExecutionResult(state, fid)
         result.read()
@@ -144,3 +144,11 @@ class ExecutionControl(kodo.service.controller.Controller):
         except:
             logger.error(f"failed to kill flow {fid}")
 
+
+    @delete("/{fid:str}/remove")
+    async def remove_flow(self, state: State, fid: str) -> None:
+        result = ExecutionResult(state, fid)
+        result.read()
+        if result.status() not in FINAL_STATE:
+            raise Exception(f"flow {fid} is still running")
+        shutil.rmtree(result.event_file.parent)

@@ -456,31 +456,31 @@ def execute_inactive(inputs, event: Flow):
     time.sleep(3)
     event.final({"message": "Hallo Welt"})
 
-flow4 = publish(
+flow5 = publish(
     execute_inactive, url="/execute", name="Test Flow", description="missing")
 
 
-@flow4.enter
-def flow4_page(form):
+@flow5.enter
+def flow5_page(form):
     return flow3_page(form)
 
 
 
-def flow4_loader():
+def flow5_loader():
     return """
 - url: http://localhost:3371
 - registry: false
 - feed: false
 - screen_level: debug
 - flows:
-  - entry: tests.test_worker:flow4
+  - entry: tests.test_worker:flow5
 """
 
 async def test_inactive():
     from httpx_sse import aconnect_sse
     node = Service(
         url="http://localhost:3371", 
-        loader="tests.test_worker:flow4_loader")
+        loader="tests.test_worker:flow5_loader")
     node.start()
     resp = httpx.post("http://localhost:3371/flows/execute", timeout=None,
                       data={"submit": "submit"},
