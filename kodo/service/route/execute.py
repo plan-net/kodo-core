@@ -1,53 +1,81 @@
+import shutil
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import psutil
 from bson import ObjectId
-from litestar import Response, delete, get
+from litestar import MediaType, Request, Response, delete, get
 from litestar.datastructures import State
 from litestar.response import ServerSentEvent, Template
 
 import kodo.service.controller
 from kodo.log import logger
-from kodo.worker.result import ExecutionResult
+from kodo.worker.result import FINAL_STATE, ExecutionResult
 
 
 class ExecutionControl(kodo.service.controller.Controller):
     path = "/flow"
 
-    # @get("/")
-    # async def listing(
-    #         self,
-    #         state: State,
-    #         request: Request,
-    #         q: Optional[str] = None,
-    #         by: Optional[str] = None,
-    #         pp: int = 10,
-    #         p: int = 0,
-    #         format: Optional[Literal["json", "html"]] = None) -> Union[
-    #             Response, Template]:
-    #     """
-    #     Return all flow executions Returns a pandas DataFrame.
-    #     """
-    #     exec_path = Path(state.exec_data)
-    #     execs = {}
-    #     for folder_path in exec_path.iterdir():
-    #         if folder_path.is_dir():
-    #             try:
-    #                 obj_id = ObjectId(folder_path.name)
-    #                 execs[str(obj_id)] = obj_id.generation_time
-    #                 ev = ExecutionResult(folder_path.joinpath(EVENT_STREAM))
-    #                 stdout = folder_path.joinpath(STDOUT_FILE)
-    #                 stderr = folder_path.joinpath(STDERR_FILE)
-    #                 execs[str(obj_id)] = {
-    #                     "generation_time": obj_id.generation_time,
-    #                     "state": ev,
-    #                     "stdout": stdout.stat().st_size if stdout.exists() else 0,
-    #                     "stderr": stderr.stat().st_size if stderr.exists() else 0
-    #                 }
-    #             except Exception:
-    #                 continue
-    #     return Response(content=execs)
+    @get("/")
+    async def listing(
+            self,
+            state: State,
+            request: Request,
+            q: Optional[str] = None,
+            by: Optional[str] = None,
+            pp: int = 10,
+            p: int = 0,
+            format: Optional[Literal["json", "html"]] = None) -> Union[
+                Response, Template]:
+        exec_path = Path(state.exec_data)
+        execs = []
+        for folder_path in exec_path.iterdir():
+            if folder_path.is_dir():
+                try:
+                    execs.append((ObjectId(folder_path.name).generation_time,
+                                  folder_path.name))
+                except Exception:
+                    continue
+        execs.sort(reverse=True)
+        page: List = []
+        skip = p * pp
+        while len(page) < pp and execs:
+            if skip > 0:
+                skip -= 1
+                execs.pop(0)
+                continue
+            _, fid = execs.pop(0)
+            result = ExecutionResult(state, fid)
+            result.read()
+            if result.status() in FINAL_STATE:
+                alive = None
+            else:
+                alive = result.check_alive()
+            if result.flow is None:
+                logger.error(f"flow {fid} has no flow")
+                shutil.rmtree(result.event_file.parent)
+                continue
+            page.append({
+                "fid": result.fid,
+                "status": result.status(),
+                "start_time": result.start_time(),
+                "end_time": result.end_time(),
+                "total": result.total_time(),
+                "flow": result.flow.model_dump(),
+                "inactive": result.inactive_time(),
+                "alive": alive
+            })
+            provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        if preferred_type == MediaType.JSON:
+            return Response(content=page)
+        return Template(
+            template_name="execution.html",
+            context={
+                "result": page
+            }
+        )
 
     @get("/{fid:str}")
     async def detail(

@@ -1,0 +1,52 @@
+{% extends "_main.html" %}
+
+{% block head %}
+<style>
+    body {
+        grid-template-columns: 1fr 95% 1fr;
+    }
+  </style>
+{% endblock %}
+
+{% block header %}
+    <h1>Execution List</h1>
+{% endblock %}
+
+{% block content %}
+
+    <table width="100%">
+        <tbody>
+            <tr>
+                <th>&nbsp;</th>
+                <th>Flow</th>
+                <th>Status</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Total Time</th>
+                <th>Inactive</th>
+                <th>Alive</th>
+            </tr>
+            {% for record in result %}
+            <tr>
+                <td>
+                    <a target="_blank" href="/flow/{{record["fid"]}}/"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/></svg></a>
+                    <a target="_blank" href="/flow/{{record["fid"]}}/stdout"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg></a>                    
+                    <a target="_blank" href="/flow/{{record["fid"]}}/stderr"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-x"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg></a>
+                    <a target="_blank" href="/flow/{{record["fid"]}}/event"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-percent"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></a>
+                </td>
+                <td>{{ record["flow"].name }}</td>
+                <td>{{ record["status"] }}</td>
+                <td>{{ record["start_time"] }}</td>
+                <td>{{ record["end_time"] }}</td>
+                <td>{{ record["total"] }}</td>
+                <td>{{ record["inactive"] }}</td>
+                <td>{{ record["alive"] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+{% endblock %}
+
+{% block footer %}
+{% endblock %}

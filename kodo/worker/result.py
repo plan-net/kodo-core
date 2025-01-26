@@ -131,6 +131,14 @@ class ExecutionResult:
                 f"flow {self.fid}, pid {self.pid} died")
             return False
 
+    def start_time(self):
+        if self._status:
+            return self._status[0]["timestamp"]
+        return None
+
+    def end_time(self):
+        return self._findtime(*FINAL_STATE)
+
     async def _stream(self, 
                       file: Path, 
                       split: bool=False) -> AsyncGenerator[SSEData, None]:
