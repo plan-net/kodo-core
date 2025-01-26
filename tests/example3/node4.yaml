@@ -29,8 +29,8 @@
     - crewai
   - entry: tests.test_worker:flow5
     url: /flow5
-    name: inactive 5 then 3
-    description: be inactive for 5 seconds then for 3 seconds
+    name: Inactivity Timer
+    description: Be inactive for 5 seconds, and then for 3 seconds
     author: dagobert.duck@web.de
     tags:
     - test

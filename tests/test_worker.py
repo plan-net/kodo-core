@@ -472,7 +472,15 @@ flow5 = publish(
 
 @flow5.enter
 def flow5_page(form):
-    return flow3_page(form)
+    if form.get("submit"):
+        return Launch()
+    return f"""
+        <p>This flow runs 5, then 3 seconds.</p> 
+        <p>
+            Watch the <i>inactive</i> timer.
+        </p> 
+        <input type="submit" name="submit">
+    """
 
 
 
