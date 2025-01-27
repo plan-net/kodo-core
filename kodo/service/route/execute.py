@@ -64,7 +64,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 "inactive": result.inactive_time(),
                 "alive": alive
             })
-            provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
         ret = {
