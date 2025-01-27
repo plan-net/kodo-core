@@ -75,7 +75,7 @@ class ExecutionControl(kodo.service.controller.Controller):
         }
         if preferred_type == MediaType.JSON:
             return Response(content=ret)
-        return Template(template_name="execution.html", context=ret)
+        return Template(template_name="jobs.html", context=ret)
 
     @get("/{fid:str}")
     async def detail(
