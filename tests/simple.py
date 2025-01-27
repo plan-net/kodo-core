@@ -8,18 +8,17 @@ from kodo.common import publish, Launch
 from tests.test_crew import ollama_online
 
 llm = None
-resp = httpx.get("http://127.0.0.1:11434", timeout=3)
 if ollama_online():
     try:
         resp = httpx.get("http://127.0.0.1:11434/api/tags", timeout=3)
         mods = resp.json()["models"]
         phi = [m["model"] for m in mods if 'phi' in m["name"]]
         if phi:
-            llm = ChatOpenAI(api_key="ollama",
+            llm = ChatOpenAI(api_key="sk-svcacct-",
                 model=f"ollama/{phi[0]}", 
                 base_url="http://localhost:11434")
         elif mods:
-            llm = ChatOpenAI(api_key="ollama",
+            llm = ChatOpenAI(api_key="sk-svcacct-",
                 model=f"ollama/{mods[0]["name"]}", 
                 base_url="http://localhost:11434")
     except:

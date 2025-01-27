@@ -4,11 +4,10 @@ We need 3 services:
 
 1. `kodosumi` registry/node service
 2. [Ray Cluster service](https://ray.io) featuring concurrent, distributed execution of agentic flows.
-3. [Ollama LLM service](https://ollama.com/) featuring local LLM
 
-All services are based on the installation procedure describe in [this README](../../README.md).
+All services are based on the installation procedure described in [this README](../../README.md).
 
-The following commands reiterate this setup.
+The following commands reiterate this setup with branch `mrau.flow`.
 
 ```bash
 mkdir demo
@@ -27,17 +26,17 @@ pip install .[tests]
 ray start --head --verbose
 ```
 
-### Start local LLM server
+### Setup OpenAI API Key
 
-If you prefer to connect to a local _Ollama Server_ start the LLM service with
+Create a file `.env`. Inside this file specify the OpenAI key with
 
-```bash
-ollama ls
+```
+OPENAI_API_KEY=sk-...
 ```
 
 ### Start node service
 
-Use `kodosumi` configuration file delivered with test `tests` repository.
+Use `kodosumi` configuration file delivered with `tests/example3` directory.
 
 ```bash
 python -m kodo.cli service tests/example3/node4.yaml --ray
@@ -47,4 +46,3 @@ python -m kodo.cli service tests/example3/node4.yaml --ray
 
 * [Flow Explorer](http://localhost:3371/flows)
 * [Jobs Review](http://localhost:3371/flow)
-
