@@ -1,6 +1,6 @@
 ## Start Services
 
-We need 3 services:
+We need 2 services _up-and-running_:
 
 1. `kodosumi` registry/node service
 2. [Ray Cluster service](https://ray.io) featuring concurrent, distributed execution of agentic flows.
