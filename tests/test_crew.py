@@ -6,16 +6,13 @@ from tests.test_node import Service
 
 def _online(url: str):
     try:
-        return httpx.get(url, timeout=1)
-    except:
-        return None
-
-def ollama_online():
-    try:
-        _online("http://127.0.0.1:11434")
+        httpx.get(url, timeout=1)
         return True
     except:
         return False
+
+def ollama_online():
+    return _online("http://127.0.0.1:11434")
 
 def ray_online():
     return _online("http://127.0.0.1:8265/")
