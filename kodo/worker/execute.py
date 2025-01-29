@@ -1,58 +1,109 @@
 import os
-from typing import Union, Callable, Any
+import time
+import traceback
+from multiprocessing import Process, Queue as M_Queue
 from pathlib import Path
+from typing import Union
 
-import crewai
+import httpx
+import ray
+from ray.util.queue import Queue as R_Queue
 
 from kodo import helper
-from kodo.datatypes import WorkerMode
-from kodo.worker.base import FlowProcess
-import kodo.error
+from kodo.datatypes import InternalOption, WorkerMode
+from kodo.worker.base import (BOOTING_STATE, ERROR_STATE, FINISHED_STATE,
+                              RUNNING_STATE, STOPPING_STATE, FlowProcess)
+from kodo.worker.flow import flow_factory
 
-def instrument_crew(crew: crewai.Crew):
-    pass
 
-def instrument_flow(flow: crewai.Flow):
-    pass
+def _execute(event_stream_file: Path, event):
+    try:
+        event.put(("data", {"status": RUNNING_STATE}))
+        flow = flow_factory(event_stream_file, event)
+        flow.instrument()
+        result = flow.run()  # type: ignore
+        event.put(("data", {"status": STOPPING_STATE}))
+        flow.finish(result)
+    except Exception as exc:
+        event.put(("error", {"exception": traceback.format_exc()}))
 
-def instrument_function(fun: Callable):
-    pass
 
-# @remote
-# def execute(entry_point: str, event_stream_file: Path, fid: str, actor):
-#     obj: Any = helper.parse_factory(entry_point)
-#     flow = obj.flow
-#     if isinstance(flow, crewai.Crew):
-#         instrument_crew(flow, actor)
-#         flow.kickoff()
-#     elif isinstance(flow, crewai.Flow):
-#         instrument_flow(flow)
-#         flow.kickoff()
-#     elif callable(flow):
-#         instrument_function(flow)
-#         flow()
+@ray.remote
+def execute_ray(*args, **kwargs):
+    # import debugpy
+    # debugpy.listen(("localhost", 5678))
+    # debugpy.wait_for_client() 
+    _execute(*args, **kwargs)
+
+
+def execute_process(*args, **kwargs):
+    _execute(*args, **kwargs)
 
 
 class FlowExecution(FlowProcess):
 
     def communicate(self, mode: Union[WorkerMode, str]) -> None:
-        self.event(
-            "data", status="running", pid=os.getpid(), ppid=os.getppid())
+        option = InternalOption()
         t0 = helper.now()
-        # ray.init(address="auto")
-        # actor init!
-        if self.event_log and self.fid:
-            actor = None
-            # try:
-            #     execute(self.factory, self.event_log, self.fid, actor)
-            # except Exception as exc:
-            #     pass
-            # while execute:
-            #     read from events
-            #     save events to event log
+        status = None
+        self._ev_write("data", 
+            dict(
+                status=BOOTING_STATE, 
+                pid=os.getpid(), 
+                ppid=os.getppid(),
+                executor="ray" if option.RAY else "thread"
+            ))
+        success = self.run_ray() if option.RAY else self.run_process()
+        if success:
+            status = FINISHED_STATE
         else:
-            raise kodo.error.SetupError(f"missing event log and/or fid")
+            status = ERROR_STATE
         t1 = helper.now()
-        self.event(
-            "data", status="finished", runtime=(t1 - t0).total_seconds())
+        self._ev_write("data", 
+            dict(status=status, runtime=(t1 - t0).total_seconds()))
+        self.create_stop_file()
 
+    def run_ray(self) -> bool:
+        try:
+            resp = httpx.get("http://localhost:8265")
+        except Exception as exc:
+            self._ev_write("error", {"exception": traceback.format_exc()})
+            return False
+        else:
+            ray.init(address="auto")
+        event_queue: R_Queue = R_Queue()
+        task = execute_ray.remote(self.event_log, event_queue)
+        ctx = ray.get_runtime_context()
+        self._ev_write("data", {"ray": {
+            "job_id": ctx.get_job_id(),
+            "node_id": ctx.get_node_id()
+        }})
+        success = True
+        while True:
+            done, _ = ray.wait([task], timeout=1)
+            while not event_queue.empty():
+                kind, data = event_queue.get()
+                if kind == "error":
+                    success = False
+                self._ev_write(kind, data)
+            if done:
+                result = ray.get(done[0])
+                break
+        return success
+    
+    def run_process(self) -> bool:
+        event_queue: M_Queue = M_Queue()
+        thread = Process(
+            target=execute_process, 
+            args=(self.event_log, event_queue))
+        thread.start()
+        success = True
+        while thread.is_alive() or not event_queue.empty():
+            while not event_queue.empty():
+                kind, data = event_queue.get()
+                if kind == "error":
+                    success = False
+                self._ev_write(kind, data)
+            time.sleep(0.5)
+        thread.join()
+        return success

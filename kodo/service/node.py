@@ -16,7 +16,11 @@ import kodo.log
 import kodo.service.signal
 import kodo.worker.loader
 from kodo.log import logger
-from kodo.service.routes import NodeConnector
+from kodo.service.route.main import NodeControl
+from kodo.service.route.flow import FlowControl
+from kodo.service.route.execute import ExecutionControl
+
+
 
 
 DEFAULT_LOADER = "kodo.worker.loader:default_loader"
@@ -48,13 +52,15 @@ def create_app(**kwargs) -> Litestar:
     app = Litestar(
         cors_config=CORSConfig(allow_origins=state.cors_origins),
         route_handlers=[
-            NodeConnector,
+            NodeControl,
+            FlowControl,
+            ExecutionControl,
             create_static_files_router(
                 path="/static",
                 directories=[Path(__file__).parent / "static"])
         ],
-        on_startup=[NodeConnector.startup],
-        on_shutdown=[NodeConnector.shutdown],
+        on_startup=[NodeControl.startup],
+        on_shutdown=[NodeControl.shutdown],
         listeners=[
             kodo.service.signal.connect,
             kodo.service.signal.update,
@@ -85,16 +91,14 @@ def create_app(**kwargs) -> Litestar:
         level, message = state.log_queue.pop(0)
         logger.log(level, message)
     logger.info(
-        f"startup with flows: {len(state.flows)}, "
-        f"providers: {len(state.providers)}, "
+        f"startup with providers: {len(state.providers)}, "
         f"connection: {len(state.connection)}, "
-        f"log level: {state.screen_level}"
-    )
+        f"log level: {state.screen_level}, "
+        f"executor: {'ray' if state.ray else 'thread'}")
     if state.cache_reset:
         if Path(state.cache_data).exists():
             logger.warning(f"reset cache {state.cache_data}")
             Path(state.cache_data).unlink()
-
     return app
 
 

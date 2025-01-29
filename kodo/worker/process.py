@@ -2,17 +2,17 @@ import base64
 import os
 import sys
 from subprocess import PIPE, Popen
-from typing import Callable, Dict, Generator, List, Optional
-
+from typing import Callable, Dict, AsyncGenerator, List, Optional
+from asyncio.subprocess import create_subprocess_exec
 from litestar.datastructures import FormMultiDict, UploadFile
 
 from kodo.datatypes import DynamicModel, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import FIX, FlowProcess, IPC_MODULE
+from kodo.worker.base import FIX, IPC_MODULE, FlowProcess
 
 
 class FlowInterProcess(FlowProcess):
 
-    def parse_msg(self, mode: WorkerMode, data, callback) -> IPCresult:
+    async def parse_msg(self, mode: WorkerMode, data, callback) -> IPCresult:
         # executed on the node
         ret: Dict[str, List] = {
             "content": [],
@@ -21,7 +21,7 @@ class FlowInterProcess(FlowProcess):
             "launch": [],
             "logging": []
         }
-        for line in self.spawn(mode, data, callback):
+        async for line in self.spawn(mode, data, callback):
             line = line.rstrip()
             if line.startswith(FIX):
                 parts = line.split(FIX)
@@ -46,33 +46,50 @@ class FlowInterProcess(FlowProcess):
             fid=self.fid,
             logging=ret["logging"])
 
-    def spawn(
+    async def spawn(
             self,
             mode: WorkerMode,
             data: Optional[FormMultiDict],
-            inputs: Callable) -> Generator[str, None, None]:
+            inputs: Callable) -> AsyncGenerator[str, None]:
         # executed on the node
         # generic method to sub-process the worker with `inputs` generator
         # output is streamed to the caller
         environ = os.environ.copy()
-        process = Popen(
-            [sys.executable, "-m", IPC_MODULE, mode, self.factory,
-             str(self.exec_path or ""), self.fid or ""], stdin=PIPE,
-            stdout=PIPE, stderr=PIPE, text=True, env=environ)
+        # process = Popen(
+        #     [sys.executable, "-m", IPC_MODULE, mode, self.factory,
+        #      str(self.exec_path or ""), self.fid or ""], stdin=PIPE,
+        #     stdout=PIPE, stderr=PIPE, text=True, env=environ)
+        process = await create_subprocess_exec(
+            sys.executable, "-m", IPC_MODULE, mode, self.factory, 
+            str(self.exec_path or ""), self.fid or "", stdin=PIPE, stdout=PIPE,
+            stderr=PIPE, env=environ)
         if process.stdin:
             if inputs is not None:
                 for line in inputs(data):
-                    process.stdin.write(line + "\n")
+                    line += "\n"
+                    process.stdin.write(line.encode("utf-8"))
+            await process.stdin.drain()
             process.stdin.close()
         if process.stdout:
-            for buffer in process.stdout:
-                if buffer.rstrip():
-                    yield buffer
-            process.stdout.close()
-        process.wait()
+            buffer = ""
+            while True:
+                line = await process.stdout.read(1024)
+                buffer += line.decode("utf-8")
+                if "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    yield line
+                elif not buffer:
+                    break
         if process.stderr:
-            stderr = process.stderr.read()
-            yield self.format_msg(stderr, "stderr")
+            buffer = ""
+            while True:
+                line = await process.stderr.read(1024)
+                if line:
+                    buffer += line.decode("utf-8")
+                else:
+                    break
+                yield self.format_msg(buffer, "stderr")
+        await process.wait()
         yield self.format_msg(str(process.returncode), "returncode")
 
     def format_msg(self, line: str, key: str) -> str:

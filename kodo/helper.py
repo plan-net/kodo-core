@@ -44,5 +44,4 @@ class Backoff:
 
 
 def stat(nodes):
-    return f"nodes: {len(nodes)}, " \
-        f"flows: {sum([len(n.flows) for n in nodes])}"
+    return f"nodes: {len(nodes)}, flows: {sum([len(n.flows) for n in nodes])}"

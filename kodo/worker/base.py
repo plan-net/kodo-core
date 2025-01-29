@@ -1,14 +1,27 @@
-import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from kodo import helper
 from kodo.datatypes import DynamicModel, WorkerMode
-from kodo.error import SetupError
+from aiofiles import open as aio_open
+from aiofiles.os import wrap
 
 EVENT_STREAM = "event.log"
+STDOUT_FILE = "stdout.log"
+STDERR_FILE = "stderr.log"
+STOP_FILE = "_done_"
+KILL_FILE = "_killed_"
 IPC_MODULE = "kodo.worker.main"
 FIX = "@_ks_@"
+
+PENDING_STATE = "pending"
+BOOTING_STATE = "booting"
+RUNNING_STATE = "running"
+STOPPING_STATE = "stopping"
+FINISHED_STATE = "finished"
+ERROR_STATE = "error"
+DIED_STATE = "died"
+FINAL_STATE = (FINISHED_STATE, ERROR_STATE, DIED_STATE)
 
 
 class FlowProcess:
@@ -32,18 +45,26 @@ class FlowProcess:
             flow_data.mkdir(exist_ok=True, parents=True)
             self.event_log = flow_data.joinpath(EVENT_STREAM)
 
-    def event(self, kind: str, **kwargs):
+    async def _aev_write(self, kind: str, data: Dict):
+        async with aio_open(self.event_log, "a") as f:  # type: ignore
+            dump = DynamicModel(data).model_dump_json()
+            now = helper.now().isoformat()
+            await f.write(f"{now} {kind} {dump}\n")
+
+    def _ev_write(self, kind: str, data: Dict):
         # executed in the subprocess
-        # access is at this stage exlusive
-        if self.event_log:
-            with open(self.event_log, "a") as f:
-                for k, v in kwargs.items():
-                    dump = DynamicModel({k: v}).model_dump_json()
-                    f.write(f"{kind}: {dump}\n")
-        else:
-            raise SetupError("event log not available")
+        # access is at this stage exclusive
+        # value is dictionary
+        with open(self.event_log, "a") as f:  # type: ignore
+            dump = DynamicModel(data).model_dump_json()
+            now = helper.now().isoformat()
+            f.write(f"{now} {kind} {dump}\n")
 
     def communicate(self, mode: Union[WorkerMode, str]) -> None:
         raise NotImplementedError()
 
+    def create_stop_file(self) -> None:
+        if self.fid and isinstance(self.exec_path, Path):
+            stop_file = self.exec_path.joinpath(str(self.fid), STOP_FILE)
+            stop_file.touch()
 

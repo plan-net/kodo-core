@@ -1,0 +1,37 @@
+- url: http://localhost:3371
+- organization: Plan.Net Journey GmbH & Co. KG
+- registry: false
+- feed: false
+- screen_level: info
+- ray: false
+- flows:
+  - entry: tests.test_worker:stream_flow
+    url: /flow
+    name: Quick Test
+    description: A simple test flow
+    author: mickey.mouse@web.de
+    tags:
+    - test
+    - function
+  - entry: tests.test_worker:flow3
+    url: /flow1
+    name: Runner
+    description: Define a custom runtime
+    author: dagobert.duck@web.de
+    tags:
+    - test
+    - function
+  - entry: tests.simple:flow
+    url: /crew
+    author: donald.duck@web.de
+    tags:
+    - test
+    - crewai
+  - entry: tests.test_worker:flow5
+    url: /flow5
+    name: Inactivity Timer
+    description: Be inactive for 5 seconds, and then for 3 seconds
+    author: dagobert.duck@web.de
+    tags:
+    - test
+    - function

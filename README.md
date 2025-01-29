@@ -44,4 +44,6 @@ Open up file `~/Project/kodo-core/.env` and define environment variables:
 
 Run tests after `pip install .[tests]` with `pytest -v`.
 
-For examples see folder `tests`. You need to install _jupyter_ with `pip install jupyter` to run the examples.
+For examples see folder `tests`. You need to install _jupyter_ with 
+`pip install jupyter` to run the examples.
+
