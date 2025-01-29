@@ -1,14 +1,16 @@
 import urllib
 from pathlib import Path
+import traceback
 
 import uvicorn
-from litestar import Litestar
+from litestar import Litestar, Response, Request
 from litestar.config.cors import CORSConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
+from litestar.exceptions import HTTPException
 
 import kodo.log
 import kodo.service.signal
@@ -18,7 +20,28 @@ from kodo.service.route.main import NodeControl
 from kodo.service.route.flow import FlowControl
 from kodo.service.route.execute import ExecutionControl
 
+
 DEFAULT_LOADER = "kodo.worker.loader:default_loader"
+
+
+def app_exception_handler(request: Request, exc: Exception) -> Response:
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        detail = exc.detail
+    else:
+        status_code = 500
+        detail = repr(exc)
+    logger.error(f"server error: {status_code} {detail}")
+    return Response(
+        content={
+            "error": "server error",
+            "path": request.url.path,
+            "detail": detail,
+            "status_code": status_code,
+            "stacktrace": traceback.format_exc(),
+        },
+        status_code=500,
+    )
 
 
 def create_app(**kwargs) -> Litestar:
@@ -51,7 +74,8 @@ def create_app(**kwargs) -> Litestar:
             version=kodo.__version__,
             render_plugins=[SwaggerRenderPlugin()],
             path='/docs',
-        ),  # if os.getenv("OPENAPI_UI", False) else None,
+        ),
+        exception_handlers={Exception: app_exception_handler},
         debug=False
     )
 
