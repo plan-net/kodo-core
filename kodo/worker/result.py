@@ -37,6 +37,9 @@ class ExecutionResult:
         self.kill_file.touch()
 
     async def read(self):
+        if not self.event_file.exists():
+            logger.error(f"event file {self.event_file} not found")
+            return
         async with aiofiles.open(self.event_file, "r") as fh:
             async for line in fh:
                 line = line.rstrip()
