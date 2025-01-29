@@ -11,12 +11,14 @@ requires-python = ">=3.10"
 dependencies = [
     "requests",
     "click",
-    "crewai",
-    "crewai_tools",
+    "crewai==0.86.*",
+    "crewai_tools==0.17.*",
     "pydantic",
     "pydantic-settings",
     "litestar[standard]",
-    "bson"
+    "bson",
+    "ray[default]",
+    "psutil"
 ]
 
 [project.optional-dependencies]

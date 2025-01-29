@@ -21,7 +21,7 @@ class Option(BaseSettings):
     LOG_FILE: Optional[str] = "./data/kodo.log"
     LOG_FILE_LEVEL: Optional[str] = "DEBUG"
     EXEC_DATA: Optional[str] = "./data/exec"
-
+    
     TIMEOUT: Optional[int] = 30
     RETRY: Optional[int] = 9
     RAY: Optional[bool] = False

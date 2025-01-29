@@ -1035,7 +1035,7 @@ async def test_mesh():
             "zonal": 1
         }   
     }
-    resp = httpx.get(f"{registry.url}/counts", timeout=None)
+    resp = httpx.get(f"{registry.url}/flows/counts", timeout=None)
     assert resp.json() == expected
     for peer in peers:
         peer.stop()

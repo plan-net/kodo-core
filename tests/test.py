@@ -4,7 +4,7 @@ from kodo.common import Launch
 from kodo.common import publish
 
 
-def execute(inputs=None):
+def execute(inputs, event):
     return "OK"
 
 
