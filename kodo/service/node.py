@@ -21,8 +21,6 @@ from kodo.service.route.flow import FlowControl
 from kodo.service.route.execute import ExecutionControl
 
 
-
-
 DEFAULT_LOADER = "kodo.worker.loader:default_loader"
 
 
