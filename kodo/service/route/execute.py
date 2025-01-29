@@ -45,7 +45,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 continue
             _, fid = execs.pop(0)
             result = ExecutionResult(state, fid)
-            result.read()
+            await result.read()
             if result.status() in FINAL_STATE:
                 alive = None
             else:
@@ -86,7 +86,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 Response, Template]:
         fid = ObjectId(fid)
         result = ExecutionResult(state, fid)
-        result.read()
+        await result.read()
         assert result.flow
 
         def file_size(file: Path) -> Union[int, None]:
@@ -124,31 +124,34 @@ class ExecutionControl(kodo.service.controller.Controller):
     @get("/{fid:str}/event")
     async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
         result = ExecutionResult(state, fid)
-        result.read()
+        await result.read()
         return ServerSentEvent(await result.stream_event())
 
     @delete("/{fid:str}/kill")
     async def kill_flow(self, state: State, fid: str) -> None:
         result = ExecutionResult(state, fid)
-        result.read()
-        logger.warning(f"request to kill flow {fid} with pid {result.pid}")
-        try:
-            proc = psutil.Process(result.pid)
-            if proc.is_running():
-                result.kill()
-                for child in proc.children(recursive=True):
-                    logger.warning(f"kill child {child.pid}")
-                    child.terminate()
-                proc.terminate()
-                logger.warning(f"killed flow {fid} with pid {result.pid}")
-        except:
-            logger.error(f"failed to kill flow {fid}")
+        await result.read()
+        if result.pid:
+            logger.warning(f"request to kill flow {fid} with pid {result.pid}")
+            try:
+                proc = psutil.Process(result.pid)
+                if proc.is_running():
+                    for child in proc.children(recursive=True):
+                        logger.warning(f"kill child {child.pid}")
+                        child.terminate()
+                    proc.terminate()
+                    logger.warning(f"killed flow {fid} with pid {result.pid}")
+            except:
+                logger.error(f"failed to kill flow {fid}")
+        else:
+            logger.error(f"request to kill flow {fid} with no pid")
+        result.kill()
 
 
     @delete("/{fid:str}/remove")
     async def remove_flow(self, state: State, fid: str) -> None:
         result = ExecutionResult(state, fid)
-        result.read()
+        await result.read()
         if result.status() not in FINAL_STATE:
             raise Exception(f"flow {fid} is still running")
         shutil.rmtree(result.event_file.parent)

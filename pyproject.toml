@@ -18,7 +18,8 @@ dependencies = [
     "litestar[standard]",
     "bson",
     "ray[default]",
-    "psutil"
+    "psutil",
+    "aiofiles"
 ]
 
 [project.optional-dependencies]

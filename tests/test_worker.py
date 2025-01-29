@@ -60,9 +60,9 @@ async def test_ipc(tmp_path):
             file_data=bin.read(), 
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     })
-    response = worker.enter("enter", form_data)
+    response = await worker.enter("enter", form_data)
     assert response.content == "hello world: METHOD enter, float"
-    response = worker.enter("enter")
+    response = await worker.enter("enter")
     assert response.content == "hello world: METHOD enter, NoneType"
     #response = worker.launch()
 

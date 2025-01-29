@@ -106,7 +106,7 @@ class FlowControl(kodo.service.controller.Controller):
             raise NotFoundException(name)
         flow = state.flows[url]
         ipc = FlowAction(flow.entry, state.exec_data)
-        ret = ipc.enter(mode, data)
+        ret = await ipc.enter(mode, data)
         t = helper.now() - t0
         logger.info(
             f"{mode} `{flow.name}` ({flow.entry}), "
@@ -114,7 +114,7 @@ class FlowControl(kodo.service.controller.Controller):
         if ret.returncode == 0:
             if ret.fid:
                 t0 = helper.now()
-                proc = ipc.run(flow)
+                proc = await ipc.run(flow)
                 template_file = "launch.html"
                 status = HTTP_201_CREATED
                 t = helper.now() - t0

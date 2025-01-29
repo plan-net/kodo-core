@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Union
+import aiofiles
 
 import yaml
 from litestar.datastructures import State
@@ -11,10 +12,9 @@ from kodo.datatypes import (MODE, CommandOption, DynamicModel,
                             EnvironmentOption, Flow, InternalOption, IPCresult,
                             ProviderDump, WorkerMode)
 from kodo.error import SetupError
-from kodo.helper import parse_factory
+from kodo.helper import parse_factory, now
 from kodo.log import logger
 from kodo.worker.process import FlowInterProcess
-
 
 class Loader:
 
@@ -91,14 +91,6 @@ class Loader:
         self.option = InternalOption(**{
             **{k: v for k, v in env.model_dump().items() if v is not None},
             **InternalOption().model_dump()})
-        # if self.option.LOADER:
-        #     if Path(self.option.LOADER).exists():
-        #         self.load_option_file()
-        #     else:
-        #         factory = parse_factory(self.option.LOADER)
-        #         yaml_string = factory()
-        #         if yaml_string:
-        #             self.load_option(yaml.safe_load(yaml_string))
         state = self.default_state()
         for field in self.option.model_fields:
             value = getattr(self.option, field)
@@ -109,20 +101,20 @@ class Loader:
         state.flows = {}
         if not state.cache_reset:
             self.load_from_cache(state)
-        if self.option.LOADER:
-            # delegate flow discovery to worker subprocess
-            worker = FlowDiscovery(self.option.LOADER)
-            flows = worker.enter()
-            for line in flows.logging:
-                record = DynamicModel.model_validate_json(line)
-                level = record.root.get("level")
-                message = record.root.get("message")
-                if level and message:
-                    state.log_queue.append((level, message))
-            for flow in flows.content.split("\n"):
-                if flow:
-                    f = Flow.model_validate_json(flow)
-                    state.flows[f.url] = f
+        # if self.option.LOADER:
+        #     # delegate flow discovery to worker subprocess
+        #     worker = FlowDiscovery(self.option.LOADER)
+        #     flows = worker.enter()
+        #     for line in flows.logging:
+        #         record = DynamicModel.model_validate_json(line)
+        #         level = record.root.get("level")
+        #         message = record.root.get("message")
+        #         if level and message:
+        #             state.log_queue.append((level, message))
+        #     for flow in flows.content.split("\n"):
+        #         if flow:
+        #             f = Flow.model_validate_json(flow)
+        #             state.flows[f.url] = f
         return state
 
     def default_state(self) -> State:
@@ -154,8 +146,8 @@ class Loader:
             "log_queue": []
         })
 
-    @staticmethod
-    def save_to_cache(state: State) -> None:
+    @staticmethod  
+    async def save_to_cache(state: State) -> None:
         dump = ProviderDump(
             url=state.url,
             organization=state.organization,
@@ -164,11 +156,11 @@ class Loader:
             providers=state.providers,
             registers=state.registers)
         file = Path(state.cache_data)
-        with file.open("w") as fh:
-            fh.write(dump.model_dump_json())
+        async with aiofiles.open(file, "w") as fh:
+            await fh.write(dump.model_dump_json())
         logger.debug(f"saved cache {file}")
 
-    def load_from_cache(self, state) -> bool:
+    def load_from_cache(self, state) -> bool:  # todo: make async
         file = Path(state.cache_data)
         if not file.exists():
             return False
@@ -188,6 +180,23 @@ class Loader:
         state.log_queue.append((logging.INFO, "loaded from cache"))
         return True
 
+    @staticmethod
+    async def load_flows(state) -> None:
+        t0 = now()
+        if state.loader:
+            # delegate flow discovery to worker subprocess
+            worker = FlowDiscovery(state.loader)
+            flows = await worker.enter()
+            for line in flows.logging:
+                record = DynamicModel.model_validate_json(line)
+                level = record.root.get("level") or logging.INFO
+                message = record.root.get("message")
+                logger.log(level, message)
+            for flow in flows.content.split("\n"):
+                if flow:
+                    f = Flow.model_validate_json(flow)
+                    state.flows[f.url] = f
+        logger.info(f"flows: {len(state.flows)} discovered after {now() - t0}")
 
 class FlowDiscovery(FlowInterProcess):
 
@@ -234,9 +243,9 @@ class FlowDiscovery(FlowInterProcess):
                 f"found '{flow.name}' at '{flow.url}' ({flow.entry})")
             self.write_msg(flow.model_dump_json())
 
-    def enter(self, *args, **kwargs) -> IPCresult:
+    async def enter(self, *args, **kwargs) -> IPCresult:
         # is executed on the node parent
-        ret = self.parse_msg(MODE.DISCOVER, None, None)
+        ret = await self.parse_msg(MODE.DISCOVER, None, None)
         return ret
 
 

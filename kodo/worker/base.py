@@ -3,6 +3,8 @@ from typing import Dict, Optional, Union
 
 from kodo import helper
 from kodo.datatypes import DynamicModel, WorkerMode
+from aiofiles import open as aio_open
+from aiofiles.os import wrap
 
 EVENT_STREAM = "event.log"
 STDOUT_FILE = "stdout.log"
@@ -42,6 +44,12 @@ class FlowProcess:
             self.event_log = flow_data.joinpath(EVENT_STREAM)
             flow_data.mkdir(exist_ok=True, parents=True)
             self.event_log = flow_data.joinpath(EVENT_STREAM)
+
+    async def _aev_write(self, kind: str, data: Dict):
+        async with aio_open(self.event_log, "a") as f:  # type: ignore
+            dump = DynamicModel(data).model_dump_json()
+            now = helper.now().isoformat()
+            await f.write(f"{now} {kind} {dump}\n")
 
     def _ev_write(self, kind: str, data: Dict):
         # executed in the subprocess
