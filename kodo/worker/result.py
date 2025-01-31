@@ -60,9 +60,12 @@ class ExecutionResult:
                             self.flow = Flow(**v)
                         else:
                             self._data[k] = v
+
+    async def verify(self):
         status = self.status()
+        alive = self.check_alive()
         if status not in FINAL_STATE:
-            if not self.pid or not self.check_alive():
+            if not self.pid or not alive:
                 async with aiofiles.open(self.event_file, "a") as f:  
                     dump = DynamicModel(
                         {"status": DIED_STATE}).model_dump_json()
@@ -70,6 +73,8 @@ class ExecutionResult:
                     await f.write(f"{now.isoformat()} data {dump}\n")
                     self._status.append({
                         "timestamp": now, "value": DIED_STATE})
+                    logger.error(f"flow {self.fid}, pid {self.pid} died")
+        return alive
 
     def __getattr__(self, name):
         return self._data.get(name, None)
@@ -131,8 +136,6 @@ class ExecutionResult:
             if proc.is_running():
                 return True
         except:
-            logger.error(
-                f"flow {self.fid}, pid {self.pid} died")
             return False
 
     def start_time(self):
@@ -150,11 +153,6 @@ class ExecutionResult:
         async with aiofiles.open(file, "r") as fh:
             next_check = helper.now() + datetime.timedelta(seconds=5)
             while not self._state.exit:
-                if helper.now() > next_check:
-                    next_check = helper.now() + datetime.timedelta(seconds=5)
-                    if not self.check_alive():
-                        yield {"data": "process died", "event": "eof"}
-                        break
                 line = await fh.readline()
                 if line:
                     if split:
@@ -164,6 +162,7 @@ class ExecutionResult:
                             "event": action}
                     else:
                         yield {"data": line.rstrip(), "event": "line"}
+                    await asyncio.sleep(0.01)
                 else:
                     if self.stop_file.exists():
                         yield {"data": "process closed", "event": "eof"}
@@ -171,13 +170,22 @@ class ExecutionResult:
                     elif self.kill_file.exists():
                         yield {"data": "process killed", "event": "eof"}
                         break
+                    elif self.status() not in FINAL_STATE:
+                        if helper.now() > next_check:
+                            next_check = helper.now() + datetime.timedelta(
+                                seconds=5)
+                            if not self.check_alive():
+                                yield {"data": "process died", "event": "eof"}
+                                break
                     await asyncio.sleep(0.1)
 
-    async def stream_stdout(self) -> AsyncGenerator[SSEData, None]:
+    async def stream_stdout(self):
         return self._stream(self.stdout_file)
 
-    async def stream_stderr(self) -> AsyncGenerator[SSEData, None]:
+    async def stream_stderr(self):
         return self._stream(self.stderr_file)
 
-    async def stream_event(self) -> AsyncGenerator[SSEData, None]:
+    async def stream_event(self):
         return self._stream(self.event_file, split=True)
+
+

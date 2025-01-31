@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 import crewai
+import crewai.project
 import ray.util.queue
 
 import kodo.error
@@ -112,9 +113,11 @@ def flow_factory(
     entry_point = str(state.get("entry_point"))
     flow: Any = helper.parse_factory(entry_point)
     obj = flow.flow
-    if callable(obj):
-        return FlowCallable(obj, state, event)
-    elif isinstance(obj, crewai.Crew):
+    if isinstance(obj, crewai.Crew):
         return FlowCrewAI(obj, state, event)
+    elif hasattr(obj, "is_crew_class") and obj.is_crew_class:
+        return FlowCrewAI(obj().crew(), state, event)
+    elif callable(obj):
+        return FlowCallable(obj, state, event)
     else:
         raise kodo.error.SetupError(f"unknown entry point: {entry_point}")

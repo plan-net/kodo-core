@@ -10,6 +10,7 @@ from litestar.response import ServerSentEvent, Template
 
 import kodo.service.controller
 from kodo.log import logger
+from kodo.worker.formatter import ResultFormatter
 from kodo.worker.result import FINAL_STATE, ExecutionResult
 
 
@@ -50,9 +51,12 @@ class ExecutionControl(kodo.service.controller.Controller):
                 alive = None
             else:
                 alive = result.check_alive()
+            if result.fid is None:
+                logger.error(f"flow {fid} has no fid")
+                continue
             if result.flow is None:
                 logger.error(f"flow {fid} has no flow")
-                shutil.rmtree(result.event_file.parent)
+                # shutil.rmtree(result.event_file.parent)
                 continue
             page.append({
                 "fid": result.fid,
@@ -81,18 +85,25 @@ class ExecutionControl(kodo.service.controller.Controller):
     async def detail(
             self,
             state: State,
+            request: Request,
             fid: str,
-            format: Optional[Literal["json", "html"]] = None) -> Union[
+            format: Optional[Literal["json", "html", "htmx"]] = None) -> Union[
                 Response, Template]:
         fid = ObjectId(fid)
         result = ExecutionResult(state, fid)
         await result.read()
+        await result.verify()
         assert result.flow
 
         def file_size(file: Path) -> Union[int, None]:
             return file.stat().st_size if file.exists() else None
 
-        return Response(content={
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        ret = {
+            "start_time": result.start_time(),
+            "end_time": result.end_time(),
             "status": result.status(),
             "total": result.total_time(),
             "bootup": result.tearup(),
@@ -108,8 +119,13 @@ class ExecutionControl(kodo.service.controller.Controller):
             "stderr": file_size(result.stderr_file),
             "inactive": result.inactive_time(),
             "pid": result.pid,
-            "ppid": result.ppid
-        })
+            "ppid": result.ppid,
+        }
+        if format == "htmx":
+            return Template(template_name="status.htmx", context=ret)
+        elif preferred_type == MediaType.JSON or format == "json":
+            return Response(content=ret)
+        return Template(template_name="status.html", context=ret)
 
     @get("/{fid:str}/stdout")
     async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:
@@ -124,8 +140,21 @@ class ExecutionControl(kodo.service.controller.Controller):
     @get("/{fid:str}/event")
     async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
         result = ExecutionResult(state, fid)
-        await result.read()
         return ServerSentEvent(await result.stream_event())
+
+    @get("/{fid:str}/event/html")
+    async def html_event(self, state: State, fid: str) -> ServerSentEvent:
+        result = ExecutionResult(state, fid)
+        async def process_stream():
+            formatter = ResultFormatter()
+            stream = await result.stream_event()
+            async for event in stream:
+                out = formatter.format(event)
+                if out:
+                    yield {"data": out, "event": "html"}
+            yield {"data": "end of process", "event": "eof"}
+            logger.info("return from stream")
+        return ServerSentEvent(process_stream())
 
     @delete("/{fid:str}/kill")
     async def kill_flow(self, state: State, fid: str) -> None:

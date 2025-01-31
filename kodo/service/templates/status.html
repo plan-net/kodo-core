@@ -1,0 +1,87 @@
+{% extends "_main.html" %}
+
+{% block head %}
+<script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+<style>
+    body {
+        grid-template-columns: 1fr 95% 1fr;
+    }
+    .grid-container {
+            display: grid;
+            grid-template-columns: 40% 20% 38%;
+            gap: 10px; /* Adjusts the space between grid items */
+        }
+    .grid-item {
+        padding: 0px;
+        text-align: left;
+    }
+    progress:not([value]) {
+        animation: indeterminateAnimation 1s infinite linear;
+        transform-origin: 0% 50%;
+        width: 90%;
+        height: 10px;
+        overflow: hidden;
+    }
+
+    @keyframes indeterminateAnimation {
+    0% {
+        transform:  translateX(0) scaleX(0);
+    }
+    40% {
+        transform:  translateX(0) scaleX(0.4);
+    }
+    100% {
+        transform:  translateX(100%) scaleX(0.5);
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+    <h1>Flow Status <a href="/flow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-no-axes-gantt"><path d="M8 6h10"/><path d="M6 12h9"/><path d="M11 18h7"/></svg></a></h1>
+{% endblock %}
+
+{% block content %}
+<details open hx-get="/flow/{{ fid }}?format=htmx" hx-swap="outerHTML" hx-trigger="load, every 1s" hx-target="#state">
+    <summary>&nbsp;Execution Status</summary>
+    <div id="state"></div>
+</details>
+
+<progress id="progress"></progress>
+
+<details open>
+    <summary>&nbsp;Event Stream</summary>
+    <div class="console"></textarea>
+</details>
+
+{% endblock %}
+{% block footer %}
+
+<script>
+    function scroll(div) {
+        var now = Date.now();
+        window.scrollTimeout = null; 
+        div.scrollTop = div.scrollHeight;
+    }
+    function throttledScroll(div) {
+        if (!window.scrollTimeout) {
+            window.scrollTimeout = setTimeout(function() {
+                scroll(div);
+            }, 250);
+        }
+    }
+    if (!window.source) {
+        var fid = "{{ fid }}";
+        window.source = new EventSource("/flow/" + fid + "/event/html");
+        window.source.addEventListener("html", function(event) {
+            var div = document.querySelector(".console");
+            div.insertAdjacentHTML('beforeend', event.data);
+            throttledScroll(div);
+        }, false);
+        window.source.addEventListener("eof", function(event) {
+            window.source.close();
+            document.getElementById("progress").value = 100
+        }, false);
+    }
+</script>
+
+{% endblock %}

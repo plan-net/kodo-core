@@ -4,7 +4,7 @@ from litestar import MediaType, Request, Response, get, post
 from litestar.datastructures import State
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import HTTPException, NotFoundException
-from litestar.response import Template
+from litestar.response import Template, Redirect
 from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
                                    HTTP_400_BAD_REQUEST)
 
@@ -128,7 +128,7 @@ class FlowControl(kodo.service.controller.Controller):
             status = HTTP_400_BAD_REQUEST
             template_file = "error.html"
         node = NodeInfo(
-            url=state.url, organization=state.organization,)
+            url=state.url, organization=state.organization)
         return Template(
             template_name=template_file,
             context={
@@ -146,7 +146,7 @@ class FlowControl(kodo.service.controller.Controller):
             self,
             state: State,
             request: Request,
-            path: str) -> Union[Response, Template]:
+            path: str) -> Union[Response, Redirect]:
         if request.headers.get("content-type") == RequestEncodingType.JSON:
             data = await request.json()
         else:
@@ -167,6 +167,8 @@ class FlowControl(kodo.service.controller.Controller):
                     "url": ret.context["url"],
                     "event_log": ret.context["event_log"],
                 }, media_type=MediaType.JSON)
+        if ret.context["result"].fid:
+            return Redirect(f"/flow/{ret.context['result'].fid}")
         return ret
 
     @get("/{path:path}")

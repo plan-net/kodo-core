@@ -41,7 +41,9 @@ class FlowAction(FlowDiscovery):
         assert self.exec_path is not None, "exec_path is None"
         assert self.fid is not None, "fid is None"
         event_data = self.exec_path.joinpath(str(self.fid))
+        event_data.mkdir(exist_ok=True, parents=True)
         self.event_log = event_data.joinpath(EVENT_STREAM)
+        self.event_log.touch()
         await self._aev_write("data", {"flow": flow.model_dump()})
         await self._aev_write("data", dict(status=PENDING_STATE))
         environ = os.environ.copy()
@@ -64,9 +66,8 @@ class FlowAction(FlowDiscovery):
         callback = flow.get_register("enter")
         ret = callback(data, mode)
         if isinstance(ret, Launch):
-            if mode == MODE.LAUNCH:
-                self.create_flow(ret.inputs)
-                self.write_msg(str(self.fid), "launch")
+            self.create_flow(ret.inputs)
+            self.write_msg(str(self.fid), "launch")
         elif isinstance(ret, str):
             for line in ret.split("\n"):
                 self.write_msg(line)

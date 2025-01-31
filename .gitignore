@@ -169,3 +169,4 @@ data/
 crews/dev/*.yaml
 .sesskey
 *.log.*
+db/

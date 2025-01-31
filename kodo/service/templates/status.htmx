@@ -1,0 +1,98 @@
+<div id="state">
+    <div class="grid-container">
+        <div class="grid-item">
+            <label>Flow Name</label>
+            <div id="name" class="idiv">{{ flow["name"] }}</div>
+            <label>Author</label>
+            <div id="author" class="idiv">{{flow["author"]}}</div>
+            <label>Description</label>
+            <div style="height: 174px" class="idiv">{{flow["description"]}}</div>
+            <label>kodosumi Version</label>
+            <div class="idiv">{{ version }}</div>
+        </div>
+        
+        <div class="grid-item">
+            <label>Execution State</label>
+            <div class="idiv{% if status != "finished" %}-highlight{%endif%}">
+                {{ status }}
+            </div>
+            <label>Start</label>
+            <div class="idiv">
+                {% if start_time %}
+                {{ start_time.strftime("%Y-%m-%d %H:%M:%S") }}
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <label>End</label>
+            <div class="idiv">
+                {% if end_time %}
+                {{ end_time.strftime("%Y-%m-%d %H:%M:%S") }}
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <label>Bootup</label>
+            <div class="idiv">
+                {% if bootup %}
+                {{ bootup| round(1) }}'
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <label>Runtime</label>
+            <div class="idiv">
+                {% if runtime %}
+                {{ runtime | round(1) }}'
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <label>Teardown</label>
+            <div class="idiv">
+                {% if teardown %}
+                {{ teardown| round(1) }}'
+                {% else %}
+                -
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="grid-item">
+            <label>Flow ID</label>
+            <div class="idiv">{{ fid }}</div>
+            <label>Entry Point</label>
+            <div class="idiv">{{ entry_point }}</div>
+            <label>Executor</label>
+            <div class="idiv">{{ executor | upper }}</div>
+            <label>Ray Job ID</label>
+            <div class="idiv">
+                {% if executor == "ray" %}
+                <a target="_blank" href="http://localhost:8265/#/jobs/{{ ray.job_id }}">
+                    {{ ray.job_id }}
+                </a>
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <label>Ray Node ID</label>
+            <div class="idiv">
+                {% if executor == "ray" %}
+                <a target="_blank" href="http://localhost:8265/#/cluster/nodes/{{ ray.node_id  }}">
+                    {{ ray.node_id  }}
+                </a>
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <label>Inactive</label>
+            <div class="idiv">
+                {% if inactive %}
+                {{ inactive | round(2) }}'
+                {% else %}
+                -
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

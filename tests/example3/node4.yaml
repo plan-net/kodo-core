@@ -5,6 +5,12 @@
 - screen_level: info
 - ray: false
 - flows:
+  - entry: tests.example4.crew:flow
+    url: /job-posting
+    author: mickey.mouse@web.de
+    tags:
+    - test
+    - crew
   - entry: tests.test_worker:stream_flow
     url: /flow
     name: Quick Test

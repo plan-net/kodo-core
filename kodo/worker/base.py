@@ -43,7 +43,7 @@ class FlowProcess:
             flow_data = self.exec_path.joinpath(str(self.fid))
             self.event_log = flow_data.joinpath(EVENT_STREAM)
             flow_data.mkdir(exist_ok=True, parents=True)
-            self.event_log = flow_data.joinpath(EVENT_STREAM)
+            self.event_log.touch()
 
     async def _aev_write(self, kind: str, data: Dict):
         async with aio_open(self.event_log, "a") as f:  # type: ignore

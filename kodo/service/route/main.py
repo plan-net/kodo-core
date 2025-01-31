@@ -61,7 +61,7 @@ class NodeControl(kodo.service.controller.Controller):
         logger.debug(f"received SIGHUP, killing me")
         os.kill(os.getpid(), signal.SIGTERM)
 
-    @get("/",
+    @get("/home",
          summary="Node Status Overview",
          description=("Returns general state information about the Kodosumi "
                       "registry or node, including startup time and status."),

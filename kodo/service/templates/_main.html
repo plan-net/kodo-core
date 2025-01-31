@@ -4,10 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=2.0">
-  <link rel="stylesheet" href="/static/simplecss/simple.css">
-  <link rel="stylesheet" href="/static/kodosumi.css">
+  <link rel="stylesheet" href="/simplecss/simple.css">
+  <link rel="stylesheet" href="/kodosumi.css">
   <title>kodosumi</title>
-  <script src="/static/htmx-2.0.4/htmx.min.js"></script>
+  <script src="/htmx-2.0.4/htmx.min.js"></script>
   {% block head %}{% endblock %}
 </head>
 
@@ -39,17 +39,11 @@
   </header>
   <main>
     {% block content %}{% endblock %}
-    <!-- {% if result is not none %}
-    <details>
-      <summary>DEBUG</summary>
-      <pre class="logging">{{result.stderr}}</pre>
-    </details>
-    {% endif %} -->
   </main>
   <footer>
     {% block footer %}{% endblock %}
   </footer>
-  <script src="/static/kodosumi.js"></script>
+  <script src="/kodosumi.js"></script>
 </body>
 
 </html>
