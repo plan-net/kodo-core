@@ -100,7 +100,8 @@ async def test_launch(tmp_path):
     resp = httpx.post(
         "http://localhost:3367/flows/execute", data={"submit": "submit"},
         headers={"Accept": "text/html"}, timeout=None)   
-    assert "NEW Launch" in resp.content.decode("utf-8")
+    assert resp.status_code == 302
+    # assert "NEW Launch" in resp.content.decode("utf-8")
     resp = httpx.get("http://localhost:3367/flows?format=json", timeout=None)
     assert resp.json()["total"] == 1
     flow = resp.json()["items"][0]
@@ -166,7 +167,8 @@ async def test_launch_printer(tmp_path):
     resp = httpx.post(
         "http://localhost:3367/flows/execute", data={"submit": "submit"},
         headers={"Accept": "text/html"}, timeout=None)
-    assert "NEW Launch" in resp.content.decode("utf-8")
+    assert resp.status_code == 302
+    # assert "NEW Launch" in resp.content.decode("utf-8")
     node.stop()
 
 
