@@ -4,9 +4,9 @@ from pathlib import Path
 
 import kodo.error
 from kodo.datatypes import MODE
-from kodo.worker.act import FlowAction
-from kodo.worker.execute import FlowExecution
-from kodo.worker.process import FlowProcess
+from kodo.worker.process.act import FlowAction
+from kodo.worker.process.execute import FlowExecution
+from kodo.worker.process.base import FlowProcess
 
 
 if __name__ == "__main__":

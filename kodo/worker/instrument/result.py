@@ -13,7 +13,7 @@ from kodo import helper
 from kodo.datatypes import DynamicModel, Flow
 from kodo.log import logger
 import aiofiles
-from kodo.worker.base import (DIED_STATE, EVENT_STREAM, FINAL_STATE, KILL_FILE,
+from kodo.worker.process.base import (DIED_STATE, EVENT_STREAM, FINAL_STATE, KILL_FILE,
                               RUNNING_STATE, STDERR_FILE, STDOUT_FILE,
                               STOP_FILE, STOPPING_STATE)
 

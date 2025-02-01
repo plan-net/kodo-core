@@ -11,9 +11,10 @@ from ray.util.queue import Queue as R_Queue
 
 from kodo import helper
 from kodo.datatypes import InternalOption, WorkerMode
-from kodo.worker.base import (BOOTING_STATE, ERROR_STATE, FINISHED_STATE,
-                              RUNNING_STATE, STOPPING_STATE, FlowProcess)
-from kodo.worker.flow import flow_factory
+from kodo.worker.process.base import (BOOTING_STATE, ERROR_STATE, 
+                                      FINISHED_STATE, RUNNING_STATE, 
+                                      STOPPING_STATE, FlowProcess)
+from kodo.worker.instrument.flow import flow_factory
 
 # import debugpy
 
@@ -41,7 +42,6 @@ def execute_ray(*args, **kwargs):
 
 def execute_process(*args, **kwargs):
     _execute(*args, **kwargs)
-
 
 
 class FlowExecution(FlowProcess):

@@ -13,11 +13,11 @@ import kodo.error
 from kodo import helper
 from kodo.common import Launch
 from kodo.datatypes import MODE, Flow, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import (EVENT_STREAM, IPC_MODULE, PENDING_STATE,
+from kodo.worker.process.base import (EVENT_STREAM, IPC_MODULE, PENDING_STATE,
                               STDERR_FILE, STDOUT_FILE)
-from kodo.worker.process import FlowInterProcess
+from kodo.worker.process.node import FlowNodeProcess
 
-class FlowAction(FlowInterProcess):
+class FlowAction(FlowNodeProcess):
 
     def build_form(self, data: FormMultiDict) -> Generator[str, None, None]:
         if data:

@@ -10,8 +10,8 @@ from litestar.response import ServerSentEvent, Template
 
 import kodo.service.controller
 from kodo.log import logger
-from kodo.worker.formatter import ResultFormatter
-from kodo.worker.result import FINAL_STATE, ExecutionResult
+from kodo.worker.instrument.formatter import ResultFormatter
+from kodo.worker.instrument.result import FINAL_STATE, ExecutionResult
 
 
 class ExecutionControl(kodo.service.controller.Controller):

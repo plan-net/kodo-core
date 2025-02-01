@@ -7,10 +7,10 @@ from asyncio.subprocess import create_subprocess_exec
 from litestar.datastructures import FormMultiDict, UploadFile
 
 from kodo.datatypes import DynamicModel, IPCinput, IPCresult, WorkerMode
-from kodo.worker.base import FIX, IPC_MODULE, FlowProcess
+from kodo.worker.process.base import FIX, IPC_MODULE, FlowProcess
 
 
-class FlowInterProcess(FlowProcess):
+class FlowNodeProcess(FlowProcess):
 
     async def parse_msg(self, mode: WorkerMode, data, callback) -> IPCresult:
         # executed on the node

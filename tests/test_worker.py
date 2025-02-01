@@ -11,10 +11,10 @@ import numpy as np
 import pandas as pd
 from litestar.datastructures import FormMultiDict, UploadFile
 
-import kodo.worker.act
+import kodo.worker.process.act
 from kodo.common import Launch, publish
-from kodo.worker.flow import Flow
-from kodo.worker.result import ExecutionResult
+from kodo.worker.instrument.flow import Flow
+from kodo.worker.instrument.result import ExecutionResult
 from tests.test_node import Service
 
 
@@ -40,7 +40,7 @@ def landing_page1(form, method):
 
 
 async def test_ipc(tmp_path):
-    worker = kodo.worker.act.FlowAction("tests.test_worker:flow1", tmp_path)
+    worker = kodo.worker.process.act.FlowAction("tests.test_worker:flow1", tmp_path)
     data = np.random.rand(1000, 10)
     df = pd.DataFrame(data, columns=[f"col{i}" for i in range(10)])
     bin = BytesIO()

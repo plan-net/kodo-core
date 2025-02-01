@@ -13,7 +13,7 @@ import kodo.service.controller
 from kodo.datatypes import MODE, NodeInfo, WorkerMode
 from kodo.log import logger
 from kodo.service.flow import build_df, filter_df, flow_welcome_url, sort_df
-from kodo.worker.act import FlowAction
+from kodo.worker.process.act import FlowAction
 
 
 class FlowControl(kodo.service.controller.Controller):
