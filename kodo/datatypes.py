@@ -25,6 +25,8 @@ class Option(BaseSettings):
     TIMEOUT: Optional[int] = 30
     RETRY: Optional[int] = 9
     RAY: Optional[bool] = False
+    ENV_HOME: Optional[str] = "./data/environ"
+    SYNC: Optional[bool] = True
 
     @field_validator('URL', mode='before')
     def url_to_str(cls, v):

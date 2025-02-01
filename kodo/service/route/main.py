@@ -26,7 +26,7 @@ class NodeControl(kodo.service.controller.Controller):
     @staticmethod
     async def startup(app: Litestar) -> None:
         app.state.started_at = helper.now()
-        await kodo.worker.loader.Loader.load_flows(app.state)
+        # await kodo.worker.loader.Loader.load_flows(app.state)
         for url in app.state.connection:
             kodo.service.signal.emit(app, "connect", url, app.state)
         message: str

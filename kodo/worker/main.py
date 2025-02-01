@@ -6,16 +6,13 @@ import kodo.error
 from kodo.datatypes import MODE
 from kodo.worker.act import FlowAction
 from kodo.worker.execute import FlowExecution
-from kodo.worker.loader import FlowDiscovery
 from kodo.worker.process import FlowProcess
 
 
 if __name__ == "__main__":
     mode, factory, exec_path, fid = sys.argv[1:5]
     worker: FlowProcess
-    if mode == MODE.DISCOVER:
-        worker = FlowDiscovery(factory)
-    elif mode == MODE.EXECUTE:
+    if mode == MODE.EXECUTE:
         pid = os.fork()
         if pid > 0:
             sys.exit(0)

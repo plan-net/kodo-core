@@ -15,10 +15,9 @@ from kodo.common import Launch
 from kodo.datatypes import MODE, Flow, IPCinput, IPCresult, WorkerMode
 from kodo.worker.base import (EVENT_STREAM, IPC_MODULE, PENDING_STATE,
                               STDERR_FILE, STDOUT_FILE)
-from kodo.worker.loader import FlowDiscovery
+from kodo.worker.process import FlowInterProcess
 
-
-class FlowAction(FlowDiscovery):
+class FlowAction(FlowInterProcess):
 
     def build_form(self, data: FormMultiDict) -> Generator[str, None, None]:
         if data:

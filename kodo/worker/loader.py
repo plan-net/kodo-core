@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Union
 import aiofiles
+import copy
 
 import yaml
 from litestar.datastructures import State
@@ -14,7 +15,7 @@ from kodo.datatypes import (MODE, CommandOption, DynamicModel,
 from kodo.error import SetupError
 from kodo.helper import parse_factory, now
 from kodo.log import logger
-from kodo.worker.process import FlowInterProcess
+
 
 class Loader:
 
@@ -27,11 +28,7 @@ class Loader:
         setup command line options as iKODO_* environment variables
         (before application launch)
         """
-        # self.init_option(**kwargs)
         self.option = EnvironmentOption()
-        # if self.option.URL and isinstance(self.option.CONNECT, list):
-        #     if self.option.URL in self.option.CONNECT:
-        #         self.option.CONNECT.remove(self.option.URL)
         self.option.LOADER = kwargs.get("loader", None)
         if self.option.LOADER:
             if Path(self.option.LOADER).exists():
@@ -98,24 +95,46 @@ class Loader:
                 setattr(state, field.lower(), value)
         connect = self.option.CONNECT or []
         state.connection = {str(host): None for host in connect or []}
-        state.flows = {}
         if not state.cache_reset:
             self.load_from_cache(state)
-        # if self.option.LOADER:
-        #     # delegate flow discovery to worker subprocess
-        #     worker = FlowDiscovery(self.option.LOADER)
-        #     flows = worker.enter()
-        #     for line in flows.logging:
-        #         record = DynamicModel.model_validate_json(line)
-        #         level = record.root.get("level")
-        #         message = record.root.get("message")
-        #         if level and message:
-        #             state.log_queue.append((level, message))
-        #     for flow in flows.content.split("\n"):
-        #         if flow:
-        #             f = Flow.model_validate_json(flow)
-        #             state.flows[f.url] = f
+
+        if self.option.LOADER:
+            if Path(self.option.LOADER).exists():
+                self.load_option_file()
+            else:
+                try:
+                    factory = parse_factory(self.option.LOADER)
+                    if callable(factory):
+                        yaml_string: str = factory()
+                        if yaml_string:
+                            self.load_option(yaml.safe_load(yaml_string))
+                    else:
+                        raise RuntimeError(
+                            f"loader not callable: {self.option.LOADER}")
+                except:
+                    raise RuntimeError(
+                        f"loader not found: {self.option.LOADER}")
+            self.load_flows(state)
         return state
+
+    def load_flows(self, state):
+        routes = set()
+        for data in self.flows:
+            try:
+                flow = Flow(**data)
+            except Exception as exc:
+                state.log_queue.append(
+                    (logging.INFO, f"failed to initialise: {data}: {exc}"))
+                continue
+            else:
+                if flow.url in routes:
+                    logger.error(f"{data["entry"]}: {flow.url} exists")
+                    continue
+                routes.add(flow.url)
+                state.log_queue.append(
+                    (logging.INFO, 
+                        f"found '{flow.name}' at '{flow.url}' ({flow.entry})"))
+                state.flows[flow.url] = flow
 
     def default_state(self) -> State:
         return State({
@@ -143,7 +162,9 @@ class Loader:
             "event": 0,
             "heartbeat": None,
             "status": None,
-            "log_queue": []
+            "log_queue": [],
+            "sync": None,
+            "env_home": None,
         })
 
     @staticmethod  
@@ -170,83 +191,10 @@ class Loader:
         for attr in ('url', 'organization', 'feed'):
             cache_value = getattr(dump, attr, None)
             curr_value = getattr(state, attr)
-            # if cache_value != curr_value:
-            #     logger.warning(f"{attr}: {cache_value} != {curr_value}")
-        # connection = sorted(state.connection.keys())
-        # if connection != sorted(dump.connection):
-        #     logger.warning(f"connection: {connection} != {dump.connection}")
         state.providers = dump.providers
         state.registers = {r: None for r in state.registers.keys()}
         state.log_queue.append((logging.INFO, "loaded from cache"))
         return True
-
-    @staticmethod
-    async def load_flows(state) -> None:
-        t0 = now()
-        if state.loader:
-            # delegate flow discovery to worker subprocess
-            worker = FlowDiscovery(state.loader)
-            flows = await worker.enter()
-            for line in flows.logging:
-                record = DynamicModel.model_validate_json(line)
-                level = record.root.get("level") or logging.INFO
-                message = record.root.get("message")
-                logger.log(level, message)
-            for flow in flows.content.split("\n"):
-                if flow:
-                    f = Flow.model_validate_json(flow)
-                    state.flows[f.url] = f
-        logger.info(f"flows: {len(state.flows)} discovered after {now() - t0}")
-
-class FlowDiscovery(FlowInterProcess):
-
-    def communicate(self, mode: Union[WorkerMode, str]) -> None:
-        # executed in the subprocess
-        if self.factory is None:
-            return
-        loader = Loader()
-        loader.init_option(LOADER=self.factory)
-        if Path(self.factory).exists():
-            loader.load_option_file()
-        else:
-            factory = parse_factory(self.factory)
-            yaml_string = factory()
-            if yaml_string:
-                loader.load_option(yaml.safe_load(yaml_string))
-        routes = set()
-        for data in loader.flows:
-            if data.get("entry", None):
-                call: Any = None
-                try:
-                    call = parse_factory(data["entry"])
-                except Exception as e:
-                    self.log_msg(logging.ERROR, f"skip {data["entry"]}: {str(e)}")
-                    continue
-                if call:
-                    for field in Flow.model_fields:
-                        value = getattr(call.fields, field)
-                        curr = data.get(field)
-                        if curr is None:
-                            data[field] = value
-            try:
-                flow = Flow(**data)
-            except Exception as e:
-                self.log_msg(logging.ERROR, f"{data}: {str(e)}")
-                continue
-            if flow.url in routes:
-                self.log_msg(
-                    logging.ERROR, f"{data["entry"]}: {flow.url} exists")
-                continue
-            routes.add(flow.url)
-            self.log_msg(
-                logging.INFO,
-                f"found '{flow.name}' at '{flow.url}' ({flow.entry})")
-            self.write_msg(flow.model_dump_json())
-
-    async def enter(self, *args, **kwargs) -> IPCresult:
-        # is executed on the node parent
-        ret = await self.parse_msg(MODE.DISCOVER, None, None)
-        return ret
 
 
 def default_loader():
