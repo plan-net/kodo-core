@@ -21,6 +21,10 @@ def parse_factory(entry_point: str) -> Callable:
     return getattr(module, obj)
 
 
+def clean_url(url: str) -> str:
+    return url if url.startswith("/") else f"/{url}"
+
+
 class Backoff:
     """
     Implements an exponential backoff mechanism for retrying operations.

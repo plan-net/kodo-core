@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
+import aiofiles
 import psutil
 from bson.objectid import ObjectId
 from litestar.datastructures import State
@@ -12,10 +13,11 @@ from litestar.types import SSEData
 from kodo import helper
 from kodo.datatypes import DynamicModel, Flow
 from kodo.log import logger
-import aiofiles
-from kodo.worker.process.base import (DIED_STATE, EVENT_STREAM, FINAL_STATE, KILL_FILE,
-                              RUNNING_STATE, STDERR_FILE, STDOUT_FILE,
-                              STOP_FILE, STOPPING_STATE)
+from kodo.worker.process.executor import (DIED_STATE, EVENT_STREAM,
+                                          FINAL_STATE, KILL_FILE,
+                                          PENDING_STATE, RUNNING_STATE,
+                                          STDERR_FILE, STDOUT_FILE, STOP_FILE,
+                                          STOPPING_STATE)
 
 
 class ExecutionResult:
@@ -38,7 +40,7 @@ class ExecutionResult:
 
     async def read(self):
         if not self.event_file.exists():
-            logger.error(f"event file {self.event_file} not found")
+            # logger.error(f"event file {self.event_file} not found")
             return
         async with aiofiles.open(self.event_file, "r") as fh:
             async for line in fh:
@@ -63,6 +65,8 @@ class ExecutionResult:
 
     async def verify(self):
         status = self.status()
+        if status == PENDING_STATE:
+            return False
         alive = self.check_alive()
         if status not in FINAL_STATE:
             if not self.pid or not alive:
@@ -116,17 +120,22 @@ class ExecutionResult:
         return None
     
     def inactive_time(self):
-        if self.status() not in FINAL_STATE:
+        status = self.status()
+        if status and status not in FINAL_STATE:
             files = [self.stdout_file, self.stderr_file, self.event_file]
             last_modified = datetime.datetime.fromtimestamp(
-                max(file.stat().st_mtime for file in files)
+                max(file.stat().st_mtime 
+                    for file in files if Path(file).exists)
             )
-            now = datetime.datetime.now().replace(tzinfo=None)
-            return (now - last_modified).total_seconds()
+            if last_modified:
+                now = datetime.datetime.now().replace(tzinfo=None)
+                return (now - last_modified).total_seconds()
         return None
     
     def status(self):
         if self._status:
+            if self.kill_file.exists():
+                return "died"
             return self._status[-1]["value"]
         return None
 
@@ -150,6 +159,8 @@ class ExecutionResult:
                       file: Path, 
                       split: bool=False) -> AsyncGenerator[SSEData, None]:
         await self.read()
+        if not file.exists():
+            return
         async with aiofiles.open(file, "r") as fh:
             next_check = helper.now() + datetime.timedelta(seconds=5)
             while not self._state.exit:

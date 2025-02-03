@@ -5,13 +5,6 @@
     body {
         grid-template-columns: 1fr 95% 1fr;
     }
-    .spin {
-        animation: spin 2s linear infinite;
-    }
-    @keyframes spin {
-        from {transform: rotate(0deg);}
-        to {transform: rotate(360deg);}
-    }
   </style>
   <meta http-equiv="refresh" content="1">
 {% endblock %}
@@ -52,7 +45,7 @@
                     {{ item["status"] }}
                     {% endif %}
                 </td>
-                <td>{{ item["start_time"].strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                <td>{{ item["start_time"].strftime("%Y-%m-%d %H:%M:%S") if item["start_time"] else "-" }}</td>
                 <td>{{ item["end_time"].strftime("%Y-%m-%d %H:%M:%S") if item["end_time"] else "-" }}</td>
                 <td>{{ item["total"] | int }}</td>
                 <td>{{ item["inactive"] or "-" }}</td>

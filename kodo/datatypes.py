@@ -25,7 +25,10 @@ class Option(BaseSettings):
     TIMEOUT: Optional[int] = 30
     RETRY: Optional[int] = 9
     RAY: Optional[bool] = False
+    RAY_SERVER: Optional[str] = "localhost:6379"
+    RAY_DASHBOARD: Optional[str] = "http://localhost:8265"
     ENV_HOME: Optional[str] = "./data/environ"
+    VENV_DIR: Optional[str] = ".venv"
     SYNC: Optional[bool] = True
 
     @field_validator('URL', mode='before')

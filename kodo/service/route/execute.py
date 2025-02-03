@@ -11,7 +11,8 @@ from litestar.response import ServerSentEvent, Template
 import kodo.service.controller
 from kodo.log import logger
 from kodo.worker.instrument.formatter import ResultFormatter
-from kodo.worker.instrument.result import FINAL_STATE, ExecutionResult
+from kodo.worker.instrument.result import ExecutionResult
+from kodo.worker.process.executor import FINAL_STATE
 
 
 class ExecutionControl(kodo.service.controller.Controller):
@@ -29,7 +30,7 @@ class ExecutionControl(kodo.service.controller.Controller):
         exec_path = Path(state.exec_data)
         execs = []
         for folder_path in exec_path.iterdir():
-            if folder_path.is_dir():
+            if folder_path.is_dir() and not folder_path.name.startswith("_"):
                 try:
                     execs.append((ObjectId(folder_path.name).generation_time,
                                   folder_path.name))
@@ -56,7 +57,6 @@ class ExecutionControl(kodo.service.controller.Controller):
                 continue
             if result.flow is None:
                 logger.error(f"flow {fid} has no flow")
-                # shutil.rmtree(result.event_file.parent)
                 continue
             page.append({
                 "fid": result.fid,
@@ -64,7 +64,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 "start_time": result.start_time(),
                 "end_time": result.end_time(),
                 "total": result.total_time(),
-                "flow": result.flow.model_dump(),
+                "flow": result.flow.model_dump() if result.flow else None,
                 "inactive": result.inactive_time(),
                 "alive": alive
             })
@@ -91,10 +91,14 @@ class ExecutionControl(kodo.service.controller.Controller):
                 Response, Template]:
         fid = ObjectId(fid)
         result = ExecutionResult(state, fid)
-        await result.read()
-        await result.verify()
-        assert result.flow
-
+        alive = False
+        try:
+            await result.read()
+            alive = await result.verify()
+            assert result.flow
+        except:
+            return Response(content=f"flow {fid} not found", status_code=404)
+        
         def file_size(file: Path) -> Union[int, None]:
             return file.stat().st_size if file.exists() else None
 
@@ -120,6 +124,7 @@ class ExecutionControl(kodo.service.controller.Controller):
             "inactive": result.inactive_time(),
             "pid": result.pid,
             "ppid": result.ppid,
+            "alive": alive
         }
         if format == "htmx":
             return Template(template_name="status.htmx", context=ret)
@@ -153,7 +158,6 @@ class ExecutionControl(kodo.service.controller.Controller):
                 if out:
                     yield {"data": out, "event": "html"}
             yield {"data": "end of process", "event": "eof"}
-            logger.info("return from stream")
         return ServerSentEvent(process_stream())
 
     @delete("/{fid:str}/kill")
@@ -183,4 +187,4 @@ class ExecutionControl(kodo.service.controller.Controller):
         await result.read()
         if result.status() not in FINAL_STATE:
             raise Exception(f"flow {fid} is still running")
-        shutil.rmtree(result.event_file.parent)
+        shutil.rmtree(str(result.event_file.parent))

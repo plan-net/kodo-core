@@ -4,7 +4,7 @@ from litestar import MediaType, Request, Response, get, post
 from litestar.datastructures import State
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import HTTPException, NotFoundException
-from litestar.response import Template, Redirect
+from litestar.response import Redirect, Template
 from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
                                    HTTP_400_BAD_REQUEST)
 
@@ -13,7 +13,8 @@ import kodo.service.controller
 from kodo.datatypes import MODE, NodeInfo, WorkerMode
 from kodo.log import logger
 from kodo.service.flow import build_df, filter_df, flow_welcome_url, sort_df
-from kodo.worker.process.act import FlowAction
+from kodo.worker.process.launcher import FlowLauncher
+from kodo.worker.process.executor import FlowExecutor
 
 
 class FlowControl(kodo.service.controller.Controller):
@@ -91,61 +92,54 @@ class FlowControl(kodo.service.controller.Controller):
             "q": query
         })
 
-    async def _ipc(
-            self,
-            mode: WorkerMode,
-            state: State,
-            name: str,
-            data=None) -> Template:
+    async def _interprocess(
+            self, 
+            state: State, 
+            name: str, 
+            data:Optional[dict]=None) -> Template:
         t0 = helper.now()
-        if name.startswith("/"):
-            url = name
-        else:
-            url = f"/{name}"
+        url = helper.clean_url(name)
         if url not in state.flows:
-            raise NotFoundException(name)
+            raise NotFoundException(url)
         flow = state.flows[url]
-        ipc = FlowAction(flow.entry, state.exec_data)
-        ret = await ipc.enter(mode, data)
-        t = helper.now() - t0
-        logger.info(
-            f"{mode} `{flow.name}` ({flow.entry}), "
-            f"booting in {t}: {'OK' if ret.returncode == 0 else 'ERROR'}")
-        if ret.returncode == 0:
-            if ret.fid:
+        action = FlowLauncher(flow.entry)
+        action_result = await action.enter(data)
+        t1 = helper.now() - t0
+        meth = logger.info if action_result.returncode == 0 else logger.error
+        meth(f"booting `{flow.name}` ({flow.entry}) in {t1}: "
+             f"{'succeeded' if action_result.returncode == 0 else 'failed'}")
+        if action_result.returncode == 0:
+            if action_result.fid:
                 t0 = helper.now()
-                proc = await ipc.run(flow)
+                executor = FlowExecutor(flow.entry, action_result.fid)
+                proc = await executor.enter(flow)
                 template_file = "launch.html"
                 status = HTTP_201_CREATED
-                t = helper.now() - t0
+                t1 = helper.now() - t0
                 logger.info(
-                    f"{mode} `{flow.name}` ({flow.entry}) in {t}: {ret.fid}, "
-                    f"pid: {proc.pid}")
+                    f"starting `{flow.name}` ({flow.entry}) in {t1}: "
+                    f"fid: {action_result.fid}, pid: {proc.pid}")
             else:
                 status = HTTP_200_OK
                 template_file = "enter.html"
         else:
             status = HTTP_400_BAD_REQUEST
             template_file = "error.html"
-        node = NodeInfo(
-            url=state.url, organization=state.organization)
+        node = NodeInfo(url=state.url, organization=state.organization)
         return Template(
             template_name=template_file,
             context={
-                "result": ret,
+                "result": action_result,
                 "flow": flow,
                 "node": node,
-                "url": flow_welcome_url(node.url, flow.url),
-                "exec_path": ipc.exec_path,
-                "event_log": ipc.event_log
+                "url": flow_welcome_url(node.url, flow.url)
             },
             status_code=status)
 
-    @post("/{path:path}")
-    async def launch_flow(
-            self,
-            state: State,
-            request: Request,
+    async def _handle(
+            self, 
+            state: State, 
+            request: Request, 
             path: str) -> Union[Response, Redirect]:
         if request.headers.get("content-type") == RequestEncodingType.JSON:
             data = await request.json()
@@ -154,7 +148,7 @@ class FlowControl(kodo.service.controller.Controller):
         provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
-        ret = await self._ipc(MODE.LAUNCH, state, path, data)
+        ret = await self._interprocess(state, path, data)
         if preferred_type == MediaType.JSON:
             return Response(
                 content={
@@ -175,9 +169,18 @@ class FlowControl(kodo.service.controller.Controller):
     async def enter_flow(
             self,
             state: State,
-            path: str) -> Template:
-        return await self._ipc(MODE.ENTER, state, path, None)
+            request: Request,
+            path: str) -> Union[Response, Redirect]:
+        return await self._handle(state, request, path)
 
+    @post("/{path:path}")
+    async def launch_flow(
+            self,
+            state: State,
+            request: Request,
+            path: str) -> Union[Response, Redirect]:
+        return await self._handle(state, request, path)
+    
     @get("/counts",
          summary="Retrieve Node and Flow Counts",
          description="Provides total counts of nodes and flows grouped by organization and tags in the Kodosumi registry.",

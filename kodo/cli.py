@@ -13,25 +13,29 @@ def cli():
 @click.option("-u", "--url", help="server URL")
 @click.option("-C", "--connect", multiple=True,
               help="registry URL to connect to, use multiple times")
-@click.option("-o", "--organization", help="organization")
+@click.option("--organization", help="organization")
 @click.option("-R", "--registry/--no-registry", is_flag=True, default=None, 
               help="registry mode")
 @click.option("-f", "--feed/--no-feed", is_flag=True, default=None, 
               help="registry feed mode")
-@click.option("-c", "--reset/--no-reset", is_flag=True, default=None, 
+@click.option("--reset/--no-reset", is_flag=True, default=None, 
               help="reset cache")
-@click.option("-d", "--cache-file", help="cache file")
+@click.option("--cache-file", help="cache file")
 @click.option("-r", "--reload/--no-relad", is_flag=True, default=None, 
               help="reload mode")
-@click.option("-y", "--ray/--no-ray", is_flag=True, default=None, 
+@click.option("--ray/--no-ray", is_flag=True, default=None, 
               help="use ray")
-@click.option("-e", "--retry", type=int, help="retry count")
+@click.option("--sync/--async", is_flag=True, default=None, 
+              help="use ray")
+@click.option("--ray-server", help="Ray server URL")
+@click.option("--ray-dashboard", help="Ray server URL")
+@click.option("--retry", type=int, help="retry count")
 @click.option("-l", "--level", type=click.Choice(
      ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'FATAL'],
      case_sensitive=False), help="Log output level")
 def service(
         loader, url, organization, connect, registry, feed, reset,
-        cache_file, reload, level, retry, ray):
+        cache_file, reload, level, retry, ray, ray_server, sync, ray_dashboard):
     """Start the kodosumi service."""
     run_service(
         loader=loader,
@@ -45,6 +49,9 @@ def service(
         reload=reload,
         screen_level=level,
         ray=ray,
+        ray_server=ray_server,
+        ray_dashboard=ray_dashboard,
+        sync=sync,
         retry=retry
     )
 

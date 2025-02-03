@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Union
 import aiofiles
-import copy
 
 import yaml
 from litestar.datastructures import State
@@ -49,6 +48,10 @@ class Loader:
         self.option = CommandOption(**{
             **{k: v for k, v in self.option.model_dump().items() if v is not None},
             **{k.upper(): v for k, v in kwargs.items() if v is not None}})
+        # extend all path options
+        for k in ("ENV_HOME", "EXEC_DATA"):
+            value = getattr(self.option, k)
+            setattr(self.option, k, str(Path(value).absolute()))
         for k, v in self.option.model_dump().items():
             if v is not None:
                 if isinstance(v, list):
@@ -165,6 +168,7 @@ class Loader:
             "log_queue": [],
             "sync": None,
             "env_home": None,
+            "venv_dir": None
         })
 
     @staticmethod  

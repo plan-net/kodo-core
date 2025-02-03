@@ -1,7 +1,15 @@
 {% extends "_main.html" %}
 
+{% block head %}
+<style>
+    body {
+        grid-template-columns: 1fr 95% 1fr;
+    }
+</style>
+{% endblock %}
+
 {% block header %}
-    <h1>Launch ERROR</h1>
+    <h1>Launch ERROR <a href="/flow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-no-axes-gantt"><path d="M8 6h10"/><path d="M6 12h9"/><path d="M11 18h7"/></svg></a></h1>
     <p>{{flow.name}}</p>
 {% endblock %}
 
@@ -11,7 +19,7 @@
             <tr>
                 <th>FLow ID</th>
                 <td>
-                    {{result.fid if result.fid is not none else 'not defined, yet'}}
+                    {{result.fid if result.fid else 'not defined, yet'}}
                 </td>
             </tr>
             <tr>
