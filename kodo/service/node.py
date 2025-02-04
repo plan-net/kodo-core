@@ -14,6 +14,7 @@ from litestar.exceptions import HTTPException
 
 import kodo.log
 import kodo.service.signal
+import kodo.service.security
 import kodo.worker.loader
 from kodo.log import logger
 from kodo.service.route.main import NodeControl
@@ -59,6 +60,7 @@ def create_app(**kwargs) -> Litestar:
         ],
         on_startup=[NodeControl.startup],
         on_shutdown=[NodeControl.shutdown],
+        # on_app_init=[kodo.service.security.create_jwt_auth_config(state.jwt_secret)],
         listeners=[
             kodo.service.signal.connect,
             kodo.service.signal.update,

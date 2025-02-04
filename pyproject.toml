@@ -18,13 +18,14 @@ dependencies = [
     "litestar[standard]",
     "bson",
     "ray[default]",
-    "psutil"
+    "psutil",
 ]
 
 [project.optional-dependencies]
 tests = [
     "pytest",
     "pytest-asyncio",
+    "pytest-httpserver",
     "isort",
-    "autopep8"
+    "autopep8",
 ]

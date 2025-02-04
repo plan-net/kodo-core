@@ -26,6 +26,8 @@ class Option(BaseSettings):
     RETRY: Optional[int] = 9
     RAY: Optional[bool] = False
 
+    JWKS_URL: Optional[str] = None
+
     @field_validator('URL', mode='before')
     def url_to_str(cls, v):
         if v:
@@ -174,3 +176,16 @@ class MODE:
     ENTER: WorkerMode = "enter"
     LAUNCH: WorkerMode = "launch"
     EXECUTE: WorkerMode = "execute"
+
+
+class User(BaseModel):
+    name: str
+    email: str
+    
+
+
+class AuthenticationResult(BaseModel):
+    expires: datetime.datetime
+    iat: datetime.datetime
+    authenticated: bool
+    user: User
