@@ -12,6 +12,7 @@ from litestar.types import SSEData
 from kodo import helper
 from kodo.datatypes import DynamicModel, Flow
 from kodo.log import logger
+import aiofiles
 from kodo.worker.base import (DIED_STATE, EVENT_STREAM, FINAL_STATE, KILL_FILE,
                               RUNNING_STATE, STDERR_FILE, STDOUT_FILE,
                               STOP_FILE, STOPPING_STATE)
@@ -35,35 +36,38 @@ class ExecutionResult:
     def kill(self):
         self.kill_file.touch()
 
-    def read(self):
-        fh = self.event_file.open("r")
-        for line in fh:
-            line = line.rstrip()
-            if not line:
-                continue
-            s_timestamp, action, s_data = line.split(" ", 2)
-            timestamp = datetime.datetime.fromisoformat(s_timestamp)
-            data = DynamicModel.model_validate_json(s_data)
-            if action == "data":
-                for k, v in data.root.items():
-                    if k == "status":
-                        self._status.append({
-                            "timestamp": timestamp, "value": v})
-                        if len(self._status) > 1:
-                            upd = self._status[-2]
-                            upd["duration"] = timestamp - upd["timestamp"]
-                    elif k == "flow":
-                        self.flow = Flow(**v)
-                    else:
-                        self._data[k] = v
+    async def read(self):
+        if not self.event_file.exists():
+            logger.error(f"event file {self.event_file} not found")
+            return
+        async with aiofiles.open(self.event_file, "r") as fh:
+            async for line in fh:
+                line = line.rstrip()
+                if not line:
+                    continue
+                s_timestamp, action, s_data = line.split(" ", 2)
+                timestamp = datetime.datetime.fromisoformat(s_timestamp)
+                data = DynamicModel.model_validate_json(s_data)
+                if action == "data":
+                    for k, v in data.root.items():
+                        if k == "status":
+                            self._status.append({
+                                "timestamp": timestamp, "value": v})
+                            if len(self._status) > 1:
+                                upd = self._status[-2]
+                                upd["duration"] = timestamp - upd["timestamp"]
+                        elif k == "flow":
+                            self.flow = Flow(**v)
+                        else:
+                            self._data[k] = v
         status = self.status()
         if status not in FINAL_STATE:
-            if not self.check_alive():
-                with open(self.event_file, "a") as f:  # type: ignore
+            if not self.pid or not self.check_alive():
+                async with aiofiles.open(self.event_file, "a") as f:  
                     dump = DynamicModel(
                         {"status": DIED_STATE}).model_dump_json()
                     now = helper.now()
-                    f.write(f"{now.isoformat()} data {dump}\n")
+                    await f.write(f"{now.isoformat()} data {dump}\n")
                     self._status.append({
                         "timestamp": now, "value": DIED_STATE})
 
@@ -142,33 +146,32 @@ class ExecutionResult:
     async def _stream(self, 
                       file: Path, 
                       split: bool=False) -> AsyncGenerator[SSEData, None]:
-        self.read()
-        fh = file.open("r")
-        next_check = helper.now() + datetime.timedelta(seconds=5)
-        while not self._state.exit:
-            if helper.now() > next_check:
-                next_check = helper.now() + datetime.timedelta(seconds=5)
-                if not self.check_alive():
-                    yield {"data": "process died", "event": "eof"}
-                    break
-            line = fh.readline()
-            if line:
-                if split:
-                    timestamp, action, data = line.split(" ", 2)
-                    yield {
-                        "data": timestamp + ': ' + data.rstrip(), 
-                        "event": action}
+        await self.read()
+        async with aiofiles.open(file, "r") as fh:
+            next_check = helper.now() + datetime.timedelta(seconds=5)
+            while not self._state.exit:
+                if helper.now() > next_check:
+                    next_check = helper.now() + datetime.timedelta(seconds=5)
+                    if not self.check_alive():
+                        yield {"data": "process died", "event": "eof"}
+                        break
+                line = await fh.readline()
+                if line:
+                    if split:
+                        timestamp, action, data = line.split(" ", 2)
+                        yield {
+                            "data": timestamp + ': ' + data.rstrip(), 
+                            "event": action}
+                    else:
+                        yield {"data": line.rstrip(), "event": "line"}
                 else:
-                    yield {"data": line.rstrip(), "event": "line"}
-            else:
-                if self.stop_file.exists():
-                    yield {"data": "process closed", "event": "eof"}
-                    break
-                elif self.kill_file.exists():
-                    yield {"data": "process killed", "event": "eof"}
-                    break
-                await asyncio.sleep(0.1)
-        fh.close()
+                    if self.stop_file.exists():
+                        yield {"data": "process closed", "event": "eof"}
+                        break
+                    elif self.kill_file.exists():
+                        yield {"data": "process killed", "event": "eof"}
+                        break
+                    await asyncio.sleep(0.1)
 
     async def stream_stdout(self) -> AsyncGenerator[SSEData, None]:
         return self._stream(self.stdout_file)

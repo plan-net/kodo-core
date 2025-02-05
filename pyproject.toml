@@ -19,6 +19,7 @@ dependencies = [
     "bson",
     "ray[default]",
     "psutil",
+    "aiofiles"
 ]
 
 [project.optional-dependencies]

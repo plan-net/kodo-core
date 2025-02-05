@@ -24,8 +24,9 @@ class NodeControl(kodo.service.controller.Controller):
     path = "/"
 
     @staticmethod
-    def startup(app: Litestar) -> None:
+    async def startup(app: Litestar) -> None:
         app.state.started_at = helper.now()
+        await kodo.worker.loader.Loader.load_flows(app.state)
         for url in app.state.connection:
             kodo.service.signal.emit(app, "connect", url, app.state)
         message: str
@@ -36,9 +37,9 @@ class NodeControl(kodo.service.controller.Controller):
             message = f"registry (feed is {app.state.feed})"
         else:
             message = f"node"
-        logger.info(
-            f"{message} startup complete "
-            f"(pid {os.getpid()}, ppid {os.getppid()})")
+        # logger.info(
+        #     f"{message} startup complete with {len(app.state.flows)}"
+        #     f"(pid {os.getpid()}, ppid {os.getppid()})")
 
         original_handler = signal.getsignal(signal.SIGINT)
 
@@ -143,7 +144,7 @@ class NodeControl(kodo.service.controller.Controller):
             nodes=data.nodes)
         state.providers[provider.url] = provider
         state.registers[provider.url] = modified
-        kodo.worker.loader.Loader.save_to_cache(state)
+        await kodo.worker.loader.Loader.save_to_cache(state)
         logger.info(
             f"Connected {data.url} with {helper.stat(data.nodes)}; "
             f"feed={data.feed} to organization {data.organization}")
@@ -200,7 +201,7 @@ class NodeControl(kodo.service.controller.Controller):
             if len(provider.nodes) != before:
                 logger.info(
                     f"removed nodes: {before - len(provider.nodes)}")
-        kodo.worker.loader.Loader.save_to_cache(state)
+        await kodo.worker.loader.Loader.save_to_cache(state)
         if state.feed:
             for peer in state.providers.values():
                 if peer.feed and peer.url != data.provider:
@@ -306,7 +307,7 @@ class NodeControl(kodo.service.controller.Controller):
                 logger.debug(f"Inserted new node at {
                     node.url} from {data.url}")
         # Save updated state to cache
-        kodo.worker.loader.Loader.save_to_cache(state)
+        await kodo.worker.loader.Loader.save_to_cache(state)
         default = kodo.service.controller.default_response(state)
         # Notify peers if feed is enabled
         if state.feed:

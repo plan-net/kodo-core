@@ -93,8 +93,7 @@ def create_app(**kwargs) -> Litestar:
         level, message = state.log_queue.pop(0)
         logger.log(level, message)
     logger.info(
-        f"startup with flows: {len(state.flows)}, "
-        f"providers: {len(state.providers)}, "
+        f"startup with providers: {len(state.providers)}, "
         f"connection: {len(state.connection)}, "
         f"log level: {state.screen_level}, "
         f"executor: {'ray' if state.ray else 'thread'}"
@@ -103,7 +102,6 @@ def create_app(**kwargs) -> Litestar:
         if Path(state.cache_data).exists():
             logger.warning(f"reset cache {state.cache_data}")
             Path(state.cache_data).unlink()
-
     return app
 
 
