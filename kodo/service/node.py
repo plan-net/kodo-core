@@ -11,6 +11,7 @@ from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
 from litestar.exceptions import HTTPException
+from litestar.middleware.base import DefineMiddleware
 
 import kodo.log
 import kodo.service.signal
@@ -48,6 +49,7 @@ def app_exception_handler(request: Request, exc: Exception) -> Response:
 def create_app(**kwargs) -> Litestar:
     loader = kodo.worker.loader.Loader()
     state = loader.load()
+    amw = DefineMiddleware(kodo.service.security.JWTAuthMiddleware, exclude=["/docs"])
     app = Litestar(
         cors_config=CORSConfig(allow_origins=state.cors_origins),
         route_handlers=[
@@ -55,37 +57,37 @@ def create_app(**kwargs) -> Litestar:
             FlowControl,
             ExecutionControl,
             create_static_files_router(
-                path="/static",
-                directories=[Path(__file__).parent / "static"])
+                path="/static", directories=[Path(__file__).parent / "static"]
+            ),
         ],
         on_startup=[NodeControl.startup],
         on_shutdown=[NodeControl.shutdown],
-        # on_app_init=[kodo.service.security.create_jwt_auth_config(state.jwt_secret)],
+        middleware=[amw],
         listeners=[
             kodo.service.signal.connect,
             kodo.service.signal.update,
-            kodo.service.signal.reconnect
+            kodo.service.signal.reconnect,
         ],
         state=state,
         template_config=TemplateConfig(
-            directory=Path(__file__).parent / "templates",
-            engine=JinjaTemplateEngine),
+            directory=Path(__file__).parent / "templates", engine=JinjaTemplateEngine
+        ),
         openapi_config=OpenAPIConfig(
             title="Kodosumi API",
             description="API documentation for the Kodosumi mesh.",
             version=kodo.__version__,
             render_plugins=[SwaggerRenderPlugin()],
-            path='/docs',
+            path="/docs",
         ),
         exception_handlers={Exception: app_exception_handler},
-        debug=False
+        debug=False,
     )
 
     kodo.log.identifier = state.url
     kodo.log.setup_logger(
         log_file=state.log_file,
         log_file_level=state.log_file_level,
-        screen_level=state.screen_level
+        screen_level=state.screen_level,
     )
     while state.log_queue:
         level, message = state.log_queue.pop(0)
@@ -95,7 +97,8 @@ def create_app(**kwargs) -> Litestar:
         f"providers: {len(state.providers)}, "
         f"connection: {len(state.connection)}, "
         f"log level: {state.screen_level}, "
-        f"executor: {'ray' if state.ray else 'thread'}")
+        f"executor: {'ray' if state.ray else 'thread'}"
+    )
     if state.cache_reset:
         if Path(state.cache_data).exists():
             logger.warning(f"reset cache {state.cache_data}")
@@ -106,7 +109,7 @@ def create_app(**kwargs) -> Litestar:
 
 def run_service(**kwargs) -> None:
     """
-    Main kodosumi service method to create the litestar application object, 
+    Main kodosumi service method to create the litestar application object,
     initialise the environment and launch uvicorn application server.
 
     Parameters:
@@ -143,7 +146,7 @@ def run_service(**kwargs) -> None:
         port=int(server.port),
         reload=bool(loader.option.RELOAD),
         factory=True,
-        log_config={"version": 1,  "loggers": {}}
+        log_config={"version": 1, "loggers": {}},
     )
 
 

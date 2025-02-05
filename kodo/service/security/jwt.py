@@ -49,6 +49,7 @@ def validate_jwt(token, jwks: JWKS):
             token,
             public_key,
             algorithms=["RS256", "RS384", "RS512"],
+            audience="account"
         )
         return decoded_token
 
