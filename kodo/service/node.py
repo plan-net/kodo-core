@@ -1,7 +1,6 @@
 import urllib
 from pathlib import Path
 import traceback
-
 import uvicorn
 from litestar import Litestar, Response, Request
 from litestar.config.cors import CORSConfig

@@ -179,3 +179,10 @@ class MODE:
     ENTER: WorkerMode = "enter"
     LAUNCH: WorkerMode = "launch"
     EXECUTE: WorkerMode = "execute"
+
+
+class LaunchResult(BaseModel):
+    fid: Optional[str] = None
+    payload: Union[str, Dict[str, Any], None] = None
+    is_launch: bool
+    success: bool

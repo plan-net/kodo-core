@@ -1,5 +1,6 @@
 from typing import List, Literal, Optional, Union
-
+import asyncio
+import ray
 from litestar import MediaType, Request, Response, get, post
 from litestar.datastructures import State
 from litestar.enums import RequestEncodingType
@@ -7,14 +8,19 @@ from litestar.exceptions import HTTPException, NotFoundException
 from litestar.response import Redirect, Template
 from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
                                    HTTP_400_BAD_REQUEST)
-
+from subprocess import Popen, PIPE
+import sys
+from asyncio.subprocess import create_subprocess_exec
 import kodo.helper as helper
 import kodo.service.controller
-from kodo.datatypes import MODE, NodeInfo, WorkerMode
+from kodo.datatypes import MODE, NodeInfo, LaunchResult
 from kodo.log import logger
 from kodo.service.flow import build_df, filter_df, flow_welcome_url, sort_df
-from kodo.worker.process.launcher import FlowLauncher
-from kodo.worker.process.executor import FlowExecutor
+from kodo.remote.launch import Launcher
+import kodo.remote.launcher
+
+# from kodo.worker.process.launcher import FlowLauncher
+# from kodo.worker.process.executor import FlowExecutor
 
 
 class FlowControl(kodo.service.controller.Controller):
@@ -95,36 +101,61 @@ class FlowControl(kodo.service.controller.Controller):
     async def _interprocess(
             self, 
             state: State, 
-            name: str, 
-            data:Optional[dict]=None) -> Template:
-        t0 = helper.now()
-        url = helper.clean_url(name)
+            path: str, 
+            data:Optional[dict]=None) -> Union[Template, dict]:
+        url = helper.clean_url(path)
         if url not in state.flows:
             raise NotFoundException(url)
         flow = state.flows[url]
-        action = FlowLauncher(flow.entry)
-        action_result = await action.enter(data)
-        t1 = helper.now() - t0
-        meth = logger.info if action_result.returncode == 0 else logger.error
-        meth(f"booting `{flow.name}` ({flow.entry}) in {t1}: "
-             f"{'succeeded' if action_result.returncode == 0 else 'failed'}")
-        if action_result.returncode == 0:
-            if action_result.fid:
-                t0 = helper.now()
-                executor = FlowExecutor(flow.entry, action_result.fid)
-                proc = await executor.enter(flow)
-                template_file = "launch.html"
-                status = HTTP_201_CREATED
-                t1 = helper.now() - t0
-                logger.info(
-                    f"starting `{flow.name}` ({flow.entry}) in {t1}: "
-                    f"fid: {action_result.fid}, pid: {proc.pid}")
-            else:
-                status = HTTP_200_OK
-                template_file = "enter.html"
-        else:
-            status = HTTP_400_BAD_REQUEST
-            template_file = "error.html"
+
+        # proc = Popen([sys.executable, "-m", "kodo.tester"], stdout=PIPE, stderr=PIPE)
+        # out = []
+        # logger.info("here I am")
+        # t0 = helper.now()
+        # while True:
+        #     try:
+        #         ret = proc.wait(timeout=0.1)
+        #         break
+        #     except:
+        #         pass
+        #     if (helper.now() - t0).total_seconds() > 3:
+        #         proc.kill()
+        #         logger.error("killing")
+        #         break
+        #     await asyncio.sleep(0.1)
+        # logger.info("done")
+
+        launch = Launcher(flow.entry)
+        ret = await launch.enter(data)
+        # if ret.success:
+        #     if ret.fid:
+        #         pass
+        # print("OK")
+        return {"I": "am good", "result": ret} 
+    
+        # action = FlowLauncher(flow.entry)
+        # action_result = await action.enter(data)
+        # t1 = helper.now() - t0
+        # meth = logger.info if action_result.returncode == 0 else logger.error
+        # meth(f"booting `{flow.name}` ({flow.entry}) in {t1}: "
+        #      f"{'succeeded' if action_result.returncode == 0 else 'failed'}")
+        # if action_result.returncode == 0:
+        #     if action_result.fid:
+        #         t0 = helper.now()
+        #         executor = FlowExecutor(flow.entry, action_result.fid)
+        #         proc = await executor.enter(flow)
+        #         template_file = "launch.html"
+        #         status = HTTP_201_CREATED
+        #         t1 = helper.now() - t0
+        #         logger.info(
+        #             f"starting `{flow.name}` ({flow.entry}) in {t1}: "
+        #             f"fid: {action_result.fid}, pid: {proc.pid}")
+        #     else:
+        #         status = HTTP_200_OK
+        #         template_file = "enter.html"
+        # else:
+        #     status = HTTP_400_BAD_REQUEST
+        #     template_file = "error.html"
         node = NodeInfo(url=state.url, organization=state.organization)
         return Template(
             template_name=template_file,
@@ -136,6 +167,7 @@ class FlowControl(kodo.service.controller.Controller):
             },
             status_code=status)
 
+
     async def _handle(
             self, 
             state: State, 
@@ -145,25 +177,19 @@ class FlowControl(kodo.service.controller.Controller):
             data = await request.json()
         else:
             data = await request.form()
+            data = data.dict()
         provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
-        ret = await self._interprocess(state, path, data)
-        if preferred_type == MediaType.JSON:
-            return Response(
-                content={
-                    "flow": ret.context["flow"].model_dump(),
-                    "fid": ret.context["result"].fid,
-                    "returncode": ret.context["result"].returncode,
-                    "success": bool(ret.context["result"].fid),
-                    # "result": ret.context["result"].model_dump(),
-                    "node": ret.context["node"].model_dump(),
-                    "url": ret.context["url"],
-                    "event_log": ret.context["event_log"],
-                }, media_type=MediaType.JSON)
-        if ret.context["result"].fid:
-            return Redirect(f"/flow/{ret.context['result'].fid}")
-        return ret
+        url = helper.clean_url(path)
+        if url not in state.flows:
+            raise NotFoundException(url)
+        flow = state.flows[url]
+        result = kodo.remote.launcher.launch(state, flow.entry, data)
+        return Response(
+            content={
+                "result": result.model_dump(),
+            }, media_type=MediaType.JSON)
 
     @get("/{path:path}")
     async def enter_flow(

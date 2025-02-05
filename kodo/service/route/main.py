@@ -1,7 +1,7 @@
 import os
 import signal
 from typing import Union
-
+import ray
 import httpx
 from litestar import Litestar, Request, delete, get, post
 from litestar.datastructures import State
@@ -17,7 +17,7 @@ import kodo.service.signal
 import kodo.worker.loader
 from kodo.datatypes import (Connect, DefaultResponse, Disconnect, Provider,
                             ProviderMap)
-from kodo.log import logger
+from kodo.log import logger, LOG_FORMAT
 
 
 class NodeControl(kodo.service.controller.Controller):
@@ -37,23 +37,37 @@ class NodeControl(kodo.service.controller.Controller):
             message = f"registry (feed is {app.state.feed})"
         else:
             message = f"node"
-        # logger.info(
-        #     f"{message} startup complete with {len(app.state.flows)}"
-        #     f"(pid {os.getpid()}, ppid {os.getppid()})")
+        logger.info(
+            f"{message} startup complete with {len(app.state.flows)}"
+            f"(pid {os.getpid()}, ppid {os.getppid()})")
 
-        original_handler = signal.getsignal(signal.SIGINT)
+        #original_handler = signal.getsignal(signal.SIGINT)
+        original_handler = {
+            signal.SIGINT: signal.getsignal(signal.SIGINT),
+            signal.SIGTERM: signal.getsignal(signal.SIGTERM)
+        }
 
         def signal_handler(signal, frame):
-            # print(f' -- interrupt triggers shutdown')
             app.state.exit = True
-            if original_handler:
-                original_handler(signal, frame)
+            if original_handler.get(signal):
+                original_handler[signal](signal, frame)
 
+        ray.init(
+            address=app.state.ray_server, 
+            ignore_reinit_error=True,
+            namespace=app.state.ray_namespace,
+            configure_logging=True,
+            logging_level="DEBUG",
+            logging_format=LOG_FORMAT,
+            log_to_driver=True,
+            runtime_env={"env_vars": {"RAY_DEBUG": "1"}}
+        )        
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
     @staticmethod
     def shutdown(app: Litestar) -> None:
+        ray.shutdown()
         logger.info(f"shutdown now")
 
     @delete("/kill")
