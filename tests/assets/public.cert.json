@@ -1,0 +1,12 @@
+{
+    "keys": [
+        {
+            "alg": "RSA-OAEP-256",
+            "e": "AQAB",
+            "kid": "12345",
+            "kty": "RSA",
+            "n": "3z8Ls8QLLnQI4sOg3aQVnaAFpw-y8U3nCYpGlm2PvJcxAn2DENAjhty_EbXojBuX0jkhlGlvoJzEOIAREMj_sJJr5W3Tv6B3LYeycrGN8LPcq98cDoKZmWfQzSPbEq-9R8DA2XtNxtBn6mFDTI5pou-k6kdR3H5J6ltLAfb3Ga5CMDCetoru8WNxE-5lcvrKFFZlbVLcFjC3qWUcjcmthsm7nChm4t-Gmqp-GNxhtkHJM80PC8fW6bNaAqPpPui-CVEJiJdifwxq9sb8G-OtoUKNdHqVaRptEVr7RtwTtcwEEr8UGO8cncbPYal_RH65zNXwJmXxYbDv4acjHG0lkQ",
+            "use": "enc"
+        }
+    ]
+}

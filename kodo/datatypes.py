@@ -184,8 +184,7 @@ class User(BaseModel):
     
 
 
-class AuthenticationResult(BaseModel):
+class Auth(BaseModel):
     expires: datetime.datetime
     iat: datetime.datetime
     authenticated: bool
-    user: User
