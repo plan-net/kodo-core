@@ -2,6 +2,7 @@ import os
 import signal
 from typing import Union
 import ray
+import logging
 import httpx
 from litestar import Litestar, Request, delete, get, post
 from litestar.datastructures import State
@@ -18,7 +19,7 @@ import kodo.worker.loader
 from kodo.datatypes import (Connect, DefaultResponse, Disconnect, Provider,
                             ProviderMap)
 from kodo.log import logger, LOG_FORMAT
-
+from kodo.remote.launcher import RAY_NAMESPACE, RAY_ENV
 
 class NodeControl(kodo.service.controller.Controller):
     path = "/"
@@ -51,17 +52,6 @@ class NodeControl(kodo.service.controller.Controller):
             app.state.exit = True
             if original_handler.get(signal):
                 original_handler[signal](signal, frame)
-
-        ray.init(
-            address=app.state.ray_server, 
-            ignore_reinit_error=True,
-            namespace=app.state.ray_namespace,
-            configure_logging=True,
-            logging_level="DEBUG",
-            logging_format=LOG_FORMAT,
-            log_to_driver=True,
-            runtime_env={"env_vars": {"RAY_DEBUG": "1"}}
-        )        
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 

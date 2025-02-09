@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union, Tuple, Dict
 import asyncio
 import ray
 from litestar import MediaType, Request, Response, get, post
@@ -13,7 +13,7 @@ import sys
 from asyncio.subprocess import create_subprocess_exec
 import kodo.helper as helper
 import kodo.service.controller
-from kodo.datatypes import MODE, NodeInfo, LaunchResult
+from kodo.datatypes import MODE, NodeInfo, LaunchResult, Flow
 from kodo.log import logger
 from kodo.service.flow import build_df, filter_df, flow_welcome_url, sort_df
 from kodo.remote.launch import Launcher
@@ -98,114 +98,134 @@ class FlowControl(kodo.service.controller.Controller):
             "q": query
         })
 
-    async def _interprocess(
-            self, 
-            state: State, 
-            path: str, 
-            data:Optional[dict]=None) -> Union[Template, dict]:
-        url = helper.clean_url(path)
-        if url not in state.flows:
-            raise NotFoundException(url)
-        flow = state.flows[url]
+    # async def _interprocess(
+    #         self, 
+    #         state: State, 
+    #         path: str, 
+    #         data:Optional[dict]=None) -> Union[Template, dict]:
+    #     url = helper.clean_url(path)
+    #     if url not in state.flows:
+    #         raise NotFoundException(url)
+    #     flow = state.flows[url]
 
-        # proc = Popen([sys.executable, "-m", "kodo.tester"], stdout=PIPE, stderr=PIPE)
-        # out = []
-        # logger.info("here I am")
-        # t0 = helper.now()
-        # while True:
-        #     try:
-        #         ret = proc.wait(timeout=0.1)
-        #         break
-        #     except:
-        #         pass
-        #     if (helper.now() - t0).total_seconds() > 3:
-        #         proc.kill()
-        #         logger.error("killing")
-        #         break
-        #     await asyncio.sleep(0.1)
-        # logger.info("done")
+    #     # proc = Popen([sys.executable, "-m", "kodo.tester"], stdout=PIPE, stderr=PIPE)
+    #     # out = []
+    #     # logger.info("here I am")
+    #     # t0 = helper.now()
+    #     # while True:
+    #     #     try:
+    #     #         ret = proc.wait(timeout=0.1)
+    #     #         break
+    #     #     except:
+    #     #         pass
+    #     #     if (helper.now() - t0).total_seconds() > 3:
+    #     #         proc.kill()
+    #     #         logger.error("killing")
+    #     #         break
+    #     #     await asyncio.sleep(0.1)
+    #     # logger.info("done")
 
-        launch = Launcher(flow.entry)
-        ret = await launch.enter(data)
-        # if ret.success:
-        #     if ret.fid:
-        #         pass
-        # print("OK")
-        return {"I": "am good", "result": ret} 
+ 
+    #     launch = Launcher(flow.entry)
+    #     ret = await launch.enter(data)
+    #     # if ret.success:
+    #     #     if ret.fid:
+    #     #         pass
+    #     # print("OK")
+    #     return {"I": "am good", "result": ret} 
     
-        # action = FlowLauncher(flow.entry)
-        # action_result = await action.enter(data)
-        # t1 = helper.now() - t0
-        # meth = logger.info if action_result.returncode == 0 else logger.error
-        # meth(f"booting `{flow.name}` ({flow.entry}) in {t1}: "
-        #      f"{'succeeded' if action_result.returncode == 0 else 'failed'}")
-        # if action_result.returncode == 0:
-        #     if action_result.fid:
-        #         t0 = helper.now()
-        #         executor = FlowExecutor(flow.entry, action_result.fid)
-        #         proc = await executor.enter(flow)
-        #         template_file = "launch.html"
-        #         status = HTTP_201_CREATED
-        #         t1 = helper.now() - t0
-        #         logger.info(
-        #             f"starting `{flow.name}` ({flow.entry}) in {t1}: "
-        #             f"fid: {action_result.fid}, pid: {proc.pid}")
-        #     else:
-        #         status = HTTP_200_OK
-        #         template_file = "enter.html"
-        # else:
-        #     status = HTTP_400_BAD_REQUEST
-        #     template_file = "error.html"
-        node = NodeInfo(url=state.url, organization=state.organization)
-        return Template(
-            template_name=template_file,
-            context={
-                "result": action_result,
-                "flow": flow,
-                "node": node,
-                "url": flow_welcome_url(node.url, flow.url)
-            },
-            status_code=status)
+    #     # action = FlowLauncher(flow.entry)
+    #     # action_result = await action.enter(data)
+    #     # t1 = helper.now() - t0
+    #     # meth = logger.info if action_result.returncode == 0 else logger.error
+    #     # meth(f"booting `{flow.name}` ({flow.entry}) in {t1}: "
+    #     #      f"{'succeeded' if action_result.returncode == 0 else 'failed'}")
+    #     # if action_result.returncode == 0:
+    #     #     if action_result.fid:
+    #     #         t0 = helper.now()
+    #     #         executor = FlowExecutor(flow.entry, action_result.fid)
+    #     #         proc = await executor.enter(flow)
+    #     #         template_file = "launch.html"
+    #     #         status = HTTP_201_CREATED
+    #     #         t1 = helper.now() - t0
+    #     #         logger.info(
+    #     #             f"starting `{flow.name}` ({flow.entry}) in {t1}: "
+    #     #             f"fid: {action_result.fid}, pid: {proc.pid}")
+    #     #     else:
+    #     #         status = HTTP_200_OK
+    #     #         template_file = "enter.html"
+    #     # else:
+    #     #     status = HTTP_400_BAD_REQUEST
+    #     #     template_file = "error.html"
+    #     node = NodeInfo(url=state.url, organization=state.organization)
+    #     return Template(
+    #         template_name=template_file,
+    #         context={
+    #             "result": action_result,
+    #             "flow": flow,
+    #             "node": node,
+    #             "url": flow_welcome_url(node.url, flow.url)
+    #         },
+    #         status_code=status)
 
 
     async def _handle(
             self, 
             state: State, 
             request: Request, 
-            path: str) -> Union[Response, Redirect]:
+            path: str) -> Tuple[Flow, LaunchResult]:
         if request.headers.get("content-type") == RequestEncodingType.JSON:
             data = await request.json()
         else:
             data = await request.form()
-            data = data.dict()
-        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
-        preferred_type = request.accept.best_match(
-            provided_types, default=MediaType.JSON)
+            data = dict(data)
         url = helper.clean_url(path)
         if url not in state.flows:
             raise NotFoundException(url)
         flow = state.flows[url]
-        result = kodo.remote.launcher.launch(state, flow.entry, data)
-        return Response(
-            content={
-                "result": result.model_dump(),
-            }, media_type=MediaType.JSON)
+        result = await kodo.remote.launcher.launch(state, flow, data)
+        return flow, result
 
     @get("/{path:path}")
     async def enter_flow(
             self,
             state: State,
             request: Request,
-            path: str) -> Union[Response, Redirect]:
-        return await self._handle(state, request, path)
+            path: str,
+            format: Optional[str]="html") -> Union[Template, Dict]:
+        logger.info(f"GET /flows{path}")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        flow, result = await self._handle(state, request, path)
+        node = NodeInfo(url=state.url, organization=state.organization)
+        ret = {
+            "result": result,
+            "flow": flow,
+            "node": node
+        }
+        if preferred_type == MediaType.JSON or format == "json":
+            return ret
+        return Template(
+            template_name="enter.html", 
+            context=ret, 
+            media_type=MediaType.HTML)
 
     @post("/{path:path}")
     async def launch_flow(
             self,
             state: State,
             request: Request,
-            path: str) -> Union[Response, Redirect]:
-        return await self._handle(state, request, path)
+            path: str) -> Union[dict, Redirect]:
+        logger.info(f"POST /flows/{path}")
+        flow, result = await self._handle(state, request, path)
+        node = NodeInfo(url=state.url, organization=state.organization)
+        ret = {
+            "result": result.model_dump(),
+            "flow": flow,
+            "node": node
+        }
+        return ret
     
     @get("/counts",
          summary="Retrieve Node and Flow Counts",

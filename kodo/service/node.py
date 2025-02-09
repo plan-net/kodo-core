@@ -140,9 +140,11 @@ def run_service(**kwargs) -> None:
         port=int(server.port),
         reload=bool(loader.option.RELOAD),
         factory=True,
+        workers=1,
         log_config={"version": 1,  "loggers": {}}
     )
 
 
 if __name__ == "__main__":
     run_service(reload=True)
+

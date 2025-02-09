@@ -371,20 +371,20 @@ async def test_execution():
 #     assert result.runtime().total_seconds() > 20.0
 #     assert result.status() == "running"
 
-def execute3(inputs, event: Flow):
+def execute3(inputs, flow: Flow):
     t0 = datetime.datetime.now()
     i = 0
     runtime = inputs.get("runtime", None)
     while True:
         i += 1
         if i % 1000 == 0:
-            event.result(dict(test=f"intermediate result {i}"))
+            flow.result(dict(test=f"intermediate result {i}"))
         print(f"debug: {i}")
         time.sleep(0.005)
         if runtime:
             if (datetime.datetime.now() - t0).total_seconds() > int(runtime):
                 break
-    event.final({"message": "Hallo Welt"})
+    flow.final({"message": f"Hallo Welt: final i == {i}"})
     return "OK"
 
 flow3 = publish(
@@ -396,7 +396,7 @@ def flow3_page(form):
     if form.get("submit"):
         runtime = form.get("runtime", None)
         if runtime is None: runtime = 10
-        return Launch(runtime=runtime)
+        return Launch(runtime=int(runtime))
     return f"""
         <p>This flow runs for a specified time (in seconds).</p> 
         <p>
