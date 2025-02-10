@@ -1,5 +1,3 @@
-from kodo import helper
-tt0 = helper.now()
 import inspect
 import sys
 from typing import Any, Callable, Optional
@@ -8,9 +6,9 @@ import crewai
 import ray.actor
 
 import kodo.error
+from kodo import helper
 from kodo.common import Launch
 from kodo.remote.launcher import RAY_ENV, RAY_NAMESPACE, RUNNING_STATE
-tt1 = helper.now()
 
 
 def flow_factory(module_name: str, flow: str) -> Callable:
@@ -36,7 +34,6 @@ class FlowCallable:
         self.run: Optional[Callable] = None
         self.memo: dict = {}
 
-
     @staticmethod
     def _create_action_method(key: str):
         def method(self, value):
@@ -47,8 +44,9 @@ class FlowCallable:
         self.actor.enqueue.remote(**{key: value})
 
     result = _create_action_method("result")
+    meta = _create_action_method("meta")
+    progress = _create_action_method("progress")
     final = _create_action_method("final")
-    data = _create_action_method("data")
     error = _create_action_method("error")
 
     def instrument(self) -> None:
@@ -63,8 +61,8 @@ class FlowCallable:
             *bound_args.args, **bound_args.kwargs)
 
     def finish(self, *args, **kwargs):
-        print("OK")
         pass
+
 class FlowCrewAI(FlowCallable):
 
     def instrument(self) -> None:
@@ -75,6 +73,35 @@ class FlowCrewAI(FlowCallable):
         self.flow.step_callback = self._crewai_step_callback
         self.flow.task_callback = self._crewai_task_callback
         self.run: Callable = lambda: self.flow.kickoff(self.inputs)
+        for agent in self.flow.agents:
+            dump = {
+                "role": agent.role,
+                "goal": agent.goal,
+                "backstory": agent.backstory,
+                "tools": []
+            }
+            for tool in agent.tools:
+                dump["tools"].append({
+                    "name": tool.name,
+                    "description": tool.description
+                })
+            self.meta({"agent": dump})
+        self.memo["task"] = {}
+        for task in self.flow.tasks:
+            dump = {
+                "name": task.name,
+                "description": task.description,
+                "expected_output": task.expected_output,
+                "agent": task.agent.role,
+                "tools": []
+            }
+            for tool in agent.tools:
+                dump["tools"].append({
+                    "name": tool.name,
+                    "description": tool.description
+                })
+            self.meta({"task": dump})
+            self.memo["task"][task.name] = []
 
     def _callback(self, cbname: str, *args, **kwargs) -> None:
         if cbcall:=self.memo.get(cbname, None):
@@ -90,21 +117,36 @@ class FlowCrewAI(FlowCallable):
 # 
     def _crewai_task_callback(self, *args, **kwargs) -> None:
         self._callback("task_callback", *args, **kwargs)
+        task = args[0]
+        if task.name not in self.memo["task"]:
+            self.memo["task"][task.name] = []
+        self.memo["task"][task.name].append(helper.now())
+        done = sum([len(lst) for t, lst in self.memo["task"].items()])
+        total = sum([len(lst) or 1 for t, lst in self.memo["task"].items()])
+        self.progress({
+            "done": done, 
+            "pending": total - done, 
+            "total": total,
+            "value": done / total
+        })
 
     def finish(self, *args, **kwargs):
         for result in args:
-            self.actor.enqueue.remote(
-                final={result.__class__.__name__: result.model_dump()})
+            self.final({result.__class__.__name__: result.model_dump()})
             
 
 def execute_flow(fid: str) -> None:
+    ray.init(
+        address=server, 
+        ignore_reinit_error=True, 
+        namespace=RAY_NAMESPACE,
+        runtime_env=RAY_ENV)
     actor = ray.get_actor(f"{fid}.exec")
     data = ray.get(actor.get_data.remote())
     flow_name = data["environment"]["flow_name"]
     module = data["environment"]["module"]
     flow_obj: Any = flow_factory(module, flow_name)
-    inputs = data["launch"].payload
-    # ray.get(actor.enqueue.remote(executable=sys.executable))  # type: ignore
+    inputs = data["launch"]["payload"]
     ray.get(actor.enqueue.remote(status=RUNNING_STATE))  # type: ignore
     flow = flow_obj.flow
     cls: Any
@@ -118,43 +160,44 @@ def execute_flow(fid: str) -> None:
     else:
         raise kodo.error.SetupError(f"not found: {module}:{flow_name}")
     runner = cls(flow, inputs["args"], inputs["inputs"], actor)
-    runner.instrument()
-    if runner.run is not None:
-        ret = runner.run()
-        runner.finish(ret)
-    else:
-        raise kodo.error.SetupError(f"no runner: {module}:{flow_name}")
+    try:
+        runner.instrument()
+        if runner.run is not None:
+            ret = runner.run()
+            runner.finish(ret)
+        else:
+            raise kodo.error.SetupError(f"no runner: {module}:{flow_name}")
+    except Exception as exc:
+        runner.error({f"{exc.__class__.__name__}": str(exc)})
+    finally:
+        ray.shutdown()
 
 
 def enter_flow(fid: str) -> None:
-    t0 = helper.now()
+    ray.init(address=server, namespace=RAY_NAMESPACE, runtime_env=RAY_ENV)
     actor = ray.get_actor(f"{fid}.launch")
     ray.get(actor.ready.remote())
-    actor.add_debug.remote(f"startup: {tt1-tt0}")
-    t1 = helper.now()
-    actor.add_debug.remote(f"actor ready: {t1-t0}")
     data = ray.get(actor.get_data.remote())
-    t2 = helper.now()
-    actor.add_debug.remote(f"get data: {t2-t1}")
     flow: Any = flow_factory(data["module"], data["flow"])
     callback = flow.get_register("enter") 
-    ret = callback(data["inputs"])
-    t3 = helper.now()
-    actor.add_debug.remote(f"return from callback: {t3-t2}")
-    if isinstance(ret, Launch):
-        ray.get(actor.set_launch.remote(ret))
-    else:
-        ray.get(actor.set_body.remote(ret))
+    try:
+        ret = callback(data["inputs"])
+        if isinstance(ret, Launch):
+            ray.get(actor.set_launch.remote(ret))
+        else:
+            ray.get(actor.set_body.remote(ret))
+    except Exception as exc:
+        ray.get(actor.set_error(f"{exc.__class__.__name__}: {exc}"))
+    ray.shutdown()
 
 
 if __name__ == "__main__":
     mode, server, fid = sys.argv[1:4]
-    ray.init(address=server, ignore_reinit_error=True, 
-             namespace=RAY_NAMESPACE, runtime_env=RAY_ENV)        
     if mode == "execute":
         execute_flow(fid)
     elif mode == "enter":
         enter_flow(fid)
     else:
         raise ValueError(f"Unknown mode: {mode}")
-    ray.shutdown()
+
+

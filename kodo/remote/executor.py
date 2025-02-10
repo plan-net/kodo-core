@@ -1,17 +1,15 @@
-import debugpy
-import sys
-import ray
 import os
-from subprocess import Popen, PIPE, DEVNULL
+import sys
+from subprocess import PIPE, Popen
+
+import ray
 from ray.util.queue import Queue
-from typing import Any
-import time
-from kodo.remote.launcher import (RAY_NAMESPACE, RAY_ENV, VENV_MODULE, 
-                                  COMPLETED_STATE, STOPPING_STATE, ERROR_STATE, 
-                                  RUNNING_STATE, STARTING_STATE, BREAK_STATE, 
-                                  RETURNING_STATE, BOOTING_STATE, EXEC_MODULE)
+
+from kodo.remote.launcher import (BOOTING_STATE, BREAK_STATE, COMPLETED_STATE,
+                                  ERROR_STATE, RAY_ENV, RAY_NAMESPACE,
+                                  RETURNING_STATE, STARTING_STATE,
+                                  STOPPING_STATE, VENV_MODULE)
 from kodo.remote.result import ExecutionResult
-from kodo import helper
 
 
 @ray.remote
@@ -56,44 +54,35 @@ class EventStream:
 
 @ray.remote
 def execute(actor: EventStream, actor_name: str):
-    # This is the process running remote
-    # if not debugpy.is_client_connected():
-    #     debugpy.listen(("localhost", 63256))
-    # debugpy.wait_for_client() 
-    # execute.remote ownership is:
     ray.get(actor.enqueue.remote(status=STARTING_STATE))  # type: ignore
     data: dict = ray.get(actor.get_data.remote())  # type: ignore
-    # executable = data["environment"]["executable"]
-    # server = data["server"]
-    # fid = data["launch"].fid
-    # cwd = data["environment"]["cwd"]
-    # os.system(f"cd {cwd}; {executable} -m {VENV_MODULE} execute {server} {fid} 1>/Users/raum/temp/1.out 2>/Users/raum/temp/2.out")
-    proc = Popen([
-        data["environment"]["executable"], "-m", VENV_MODULE, "execute", 
-        data["server"], data["launch"].fid], stdout=PIPE, stderr=sys.stdout, 
-        cwd=data["environment"]["cwd"])
+    executable = data["environment"]["executable"]
+    server = data["server"]
+    fid = data["launch"]["fid"]
+    cwd = data["environment"]["cwd"]
+    proc = Popen(
+        [executable, "-m", VENV_MODULE, "execute", server, fid], 
+        stdout=PIPE, stderr=sys.stdout, cwd=cwd)
     if proc.stdout:
         for line in proc.stdout:
             actor.enqueue.remote(  # type: ignore
                 stdout=line.decode("utf-8").rstrip())
-    # if proc.stderr:
-    #     for line in proc.stderr:
-    #         actor.enqueue.remote(  # type: ignore
-    #             stderr=line.decode("utf-8").rstrip())
     ret = proc.wait()
-    print(ret)
+    ray.get(actor.enqueue.remote(returncode=ret))  # type: ignore
     ray.get(actor.enqueue.remote(status=STOPPING_STATE))  # type: ignore
     return True
 
 
-def main(server: str, exec_path: str) -> None:
+def main(debug: bool, server: str, exec_path: str) -> None:
     # This is the detached, isolated processing running on the node
-    ray.init(address=server, ignore_reinit_error=True, namespace=RAY_NAMESPACE,
+    ray.init(address=server, 
+             ignore_reinit_error=True, 
+             namespace=RAY_NAMESPACE,
              runtime_env=RAY_ENV)
     result = ExecutionResult(exec_path)    
     result.read()
     result.open_write()
-    actor_name = f"{result.launch.fid}.exec"
+    actor_name = f"{result.launch["fid"]}.exec"
     actor = EventStream.options(name=actor_name).remote()  # type: ignore
     ray.get(actor.ready.remote())
     actor.initialise.remote(
@@ -101,62 +90,50 @@ def main(server: str, exec_path: str) -> None:
         exec_path=exec_path,
         launch=result.launch, 
         environment=result.environment)
+    if debug:
+        ray.get(actor.enqueue.remote(debug="running in debug mode"))  # type: ignore
     ray.get(actor.enqueue.remote(status=BOOTING_STATE))  # type: ignore
-    unready_exec = [execute.remote(actor, actor_name)]
+    unready = [execute.remote(actor, actor_name)]
     ret_value = None
-    done = False
     try:
         while True:
-            if unready_exec:
-                ready_exec, unready_exec = ray.wait(unready_exec, timeout=0.001)
-                if ready_exec and ret_value is None:
-                    ret_value = ray.get(ready_exec)
+            if unready:
+                ready, unready = ray.wait(unready, timeout=0.001)
+                if ready and ret_value is None:
+                    ret_value = ray.get(ready)
                     result.write({"status": RETURNING_STATE})
-            elif not done:
-                result.write({"status": BREAK_STATE})
-                done = True
-
-            q = ray.get(actor.dequeue.remote())
-            if q:
-                result.write(q)
+            dequeue = ray.get(actor.dequeue.remote())
+            if dequeue:
+                result.write(dequeue)
+                if list(dequeue.keys())[0] == "error":
+                    raise RuntimeError("execute failed")
             elif ret_value:
                 result.write({"status": BREAK_STATE})
                 break
-
-            # ready_queue, _ = ray.wait([actor.dequeue.remote()], timeout=0.001)
-            # if ready_queue:
-            #     queue_value = ray.get(ready_queue)
-            #     leave = False
-            #     for qv in queue_value:
-            #         if qv:
-            #            result.write(qv)
-            #         else:
-            #             leave = True
-            #             #break
-            #     if leave and done:
-            #         break
-
-                # if "status" in q:
-                #     status = q.get("status", "")
-                #     result.write({"status": status})
-                # else:
-                #     result.write({"body": q})
-    except Exception as exc:
+    except RuntimeError as exc:
         result.write({"status": ERROR_STATE})
+    except Exception as exc:
         result.write({"error": f"{exc.__class__.__name__}: {exc}"})
+        result.write({"status": ERROR_STATE})
     else:
         result.write({"status": COMPLETED_STATE})
     finally:
         ray.shutdown()
         result.close_write()
-    # flow: Any = flow_factory(data["module"], data["flow"])
-    # callback = flow.get_register("enter") 
-    # ret = callback(data["inputs"])
-    # if isinstance(ret, Launch):
-    #     ray.get(actor.set_launch.remote(ret))
-    # else:
-    #     ray.get(actor.set_body.remote(ret))
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    if sys.gettrace() is not None or "debugpy" in sys.modules:
+        main(True, *sys.argv[1:3])
+        sys.exit(0)
+    else:
+        pid = os.fork()
+        if pid > 0:
+            os.waitpid(pid, 0) 
+            sys.exit(0)
+        os.setsid()
+        pid = os.fork()
+        if pid > 0:
+            os.waitpid(pid, 0)
+            os._exit(0)
+        main(False, *sys.argv[1:3])

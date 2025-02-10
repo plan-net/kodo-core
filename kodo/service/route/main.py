@@ -39,15 +39,12 @@ class NodeControl(kodo.service.controller.Controller):
         else:
             message = f"node"
         logger.info(
-            f"{message} startup complete with {len(app.state.flows)}"
+            f"{message} startup complete with {len(app.state.flows)} flows "
             f"(pid {os.getpid()}, ppid {os.getppid()})")
 
-        #original_handler = signal.getsignal(signal.SIGINT)
         original_handler = {
             signal.SIGINT: signal.getsignal(signal.SIGINT),
-            signal.SIGTERM: signal.getsignal(signal.SIGTERM)
-        }
-
+            signal.SIGTERM: signal.getsignal(signal.SIGTERM)}
         def signal_handler(signal, frame):
             app.state.exit = True
             if original_handler.get(signal):

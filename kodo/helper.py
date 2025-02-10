@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 from typing import Callable
+import time
 
 
 def now():
@@ -37,13 +38,17 @@ class Backoff:
         The current sleep time in seconds.
     """
 
-    def __init__(self, sleep: float = 0.5):
-        self.max = 8
+    def __init__(self, sleep: float = 0.5, maximum: float = 8):
+        self.max = maximum
         self.timer = sleep
         self.sleep = sleep
 
     async def wait(self) -> None:
         await asyncio.sleep(self.sleep)
+        self.sleep = self.max if self.sleep > self.max else self.sleep * 2
+
+    def wait_b(self) -> None:
+        time.sleep(self.sleep)
         self.sleep = self.max if self.sleep > self.max else self.sleep * 2
 
 

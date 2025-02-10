@@ -259,15 +259,15 @@ def stream_loader():
   - entry: tests.test_worker:stream_flow
 """
 
-def stream_execute(inputs, event: Flow):
-    event.result(dict(test=f"TEST RESULT"))
+def stream_execute(inputs, flow: Flow):
+    flow.result(dict(test=f"TEST RESULT"))
     print("This is printed")
     print("This is printed to sys.stderr", file=sys.stderr)
     sys.stdout.write("This is written to sys.stdout\n")
     sys.stderr.write("This is written to sys.stderr\n")
     for i in range(3000):
         print(f"printing intermediate result {i}")
-        event.result(dict(result=f"intermediate result {i}"))
+        flow.result(dict(result=f"intermediate result {i}"))
     return "OK"
 
 
@@ -370,6 +370,7 @@ async def test_execution():
 #     result.read()
 #     assert result.runtime().total_seconds() > 20.0
 #     assert result.status() == "running"
+
 
 def execute3(inputs, flow: Flow):
     t0 = datetime.datetime.now()

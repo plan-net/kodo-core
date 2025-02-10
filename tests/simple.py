@@ -94,7 +94,8 @@ flow = publish(
 
 @flow.enter
 def landing_page(form):
-    if topic:=form.get("topic") and form.get("terms"):
+    if form.get("topic") and form.get("terms"):
+        topic = form.get("topic")
         if topic.strip():
             return Launch(topic=topic.strip())
     error = ""

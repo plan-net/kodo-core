@@ -1,25 +1,22 @@
-import os
-import sys
-from typing import Tuple, Union, Any, Dict
-from bson.objectid import ObjectId
-import pydantic
-import platform
-import ray
-from ray.util.queue import Queue
-from asyncio.subprocess import create_subprocess_exec
-import os.path
-import aiofiles
-from subprocess import Popen, DEVNULL
-from litestar.datastructures import State
-from pathlib import Path
 import logging
-import debugpy
-from kodo.datatypes import LaunchResult, Flow, DynamicModel
-from kodo.common import Launch
-from kodo import helper
-import kodo
-from kodo.log import logger, LOG_FORMAT
+import os.path
+import platform
+import sys
+from pathlib import Path
+from subprocess import DEVNULL, Popen
+from typing import Any, Dict, Tuple, Union
 
+import aiofiles
+import pydantic
+import ray
+from bson.objectid import ObjectId
+from litestar.datastructures import State
+
+import kodo
+from kodo import helper
+from kodo.common import Launch
+from kodo.datatypes import DynamicModel, Flow, LaunchResult
+from kodo.log import LOG_FORMAT, logger
 
 WINDOWS = ("Scripts", "python.exe")
 LINUX = ("bin", "python")
@@ -73,7 +70,7 @@ class LaunchStream:
         self._data = {}
         self._body = None
         self._launch = None
-        self._debug = []
+        self._error = None
 
     def ready(self):
         return True
@@ -86,9 +83,6 @@ class LaunchStream:
             module: str,
             flow: str,
             inputs: dict) -> None:
-        # if not debugpy.is_client_connected():
-        #     debugpy.listen(("localhost", 63257))
-        # debugpy.wait_for_client() 
         self._data = {
             "fid": fid,
             "executable": executable,
@@ -106,17 +100,17 @@ class LaunchStream:
             "is_launch": is_launch
         }}
 
-    def add_debug(self, debug: str) -> None:
-        self._debug.append(debug)
-
-    def get_debug(self) -> list:
-        return self._debug
-    
     def set_body(self, body: str) -> None:
         self._body = body
 
     def get_body(self) -> str:
         return self._body
+    
+    def set_error(self, message: str) -> None:
+        self._error = message
+
+    def get_error(self) -> str:
+        return self._error
     
     def set_launch(self, instance: Launch) -> None:
         self._launch = {
@@ -127,23 +121,6 @@ class LaunchStream:
     def get_launch(self) -> Union[dict, None]:
         return self._launch
 
-
-# @ray.remote
-# def enter(server: str, actor: LaunchStream) -> LaunchResult:
-#     # if not debugpy.is_client_connected():
-#     #     debugpy.listen(("localhost", 63255))
-#     # debugpy.wait_for_client() 
-#     data: dict = ray.get(actor.get_data.remote())  # type: ignore
-#     proc = Popen([
-#         data["executable"], "-m", VENV_MODULE, "enter", server, data["fid"]], 
-#         stdout=DEVNULL, stderr=DEVNULL, cwd=data["cwd"])
-#     proc.wait()
-#     ret: dict = ray.get(actor.get_data.remote())  # type: ignore
-#     return LaunchResult(
-#         fid=ret["fid"], 
-#         payload=ret["payload"], 
-#         is_launch=ret["is_launch"], 
-#         success=proc.returncode == 0)
 
 def ev_format(value: Union[pydantic.BaseModel, Dict[str, Any]]) -> str:
     if isinstance(value, pydantic.BaseModel):
@@ -194,41 +171,36 @@ async def launch(state: State, flow: Flow, inputs: dict) -> LaunchResult:
         ignore_reinit_error=True,
         namespace=RAY_NAMESPACE,
         configure_logging=True,
-        logging_level=logging.getLevelName(logger.level),
+        logging_level=logging.ERROR,
         logging_format=LOG_FORMAT,
         log_to_driver=True,
         runtime_env=RAY_ENV
     )
-    t1 = helper.now()
-    logger.info(f"ray init: {t1 - t0}")
     fid = str(ObjectId())
-    logger.info(f"booting {flow.url},  fid: {fid}")
+    logger.info(f"booting {flow.url}, fid: {fid}")
     actor = LaunchStream.options(name=f"{fid}.launch").remote()  # type: ignore
-    t2 = helper.now()
-    logger.info(f"actor init: {t2 - t0}")
     ray.get(actor.ready.remote())
     executable, cwd, module, flow_name = parse_factory(state, str(flow.entry))
     ray.get(actor.initialise.remote(
-        fid=fid, executable=executable, cwd=cwd, module=module, flow=flow_name, 
+        fid=fid, 
+        executable=executable, 
+        cwd=cwd, 
+        module=module, 
+        flow=flow_name, 
         inputs=inputs))
-    t3 = helper.now()
-    logger.info(f"actor ready: {t3 - t2}")
-    #meth = enter.remote(state.ray_server, actor)
-    proc = Popen([
-        executable, "-m", VENV_MODULE, "enter", state.ray_server, fid], 
+    proc = Popen(
+        [executable, "-m", VENV_MODULE, "enter", state.ray_server, fid], 
         stdout=DEVNULL, stderr=DEVNULL, cwd=cwd)
     proc.wait()
-    t4 = helper.now()
-    logger.info(f"proc done: {t4 - t3}")
+    if proc.returncode != 0:
+        error = ray.get(actor.get_error.remote())
+        logger.error(f"returncode {proc.returncode}: {error}")
     ret: dict = ray.get(actor.get_data.remote())  # type: ignore
     result = LaunchResult(
         fid=ret["fid"], 
         payload=ret["payload"], 
         is_launch=ret["is_launch"], 
         success=proc.returncode == 0)
-    t5 = helper.now()
-    logger.info(f"shutdown: {t5 - t4}")
-    # result = await meth
     if result.is_launch:
         exec_path = await _create_event_data(
             state=state, 
@@ -239,16 +211,14 @@ async def launch(state: State, flow: Flow, inputs: dict) -> LaunchResult:
             module=module,
             flow_name=flow_name)
         # start and detach
-        proc = Popen([
-            sys.executable, "-m", EXEC_MODULE, state.ray_server, exec_path], 
-            stdout=DEVNULL, stderr=DEVNULL)
+        proc = Popen(
+            [sys.executable, "-m", EXEC_MODULE, state.ray_server, exec_path],
+            stdout=DEVNULL, stderr=DEVNULL, start_new_session=True)
         logger.info(
-            f"launched {flow.url}, fid: {fid}, pid={proc.pid}"
+            f"launched {flow.url}, fid: {fid}, pid: {proc.pid}"
             f"in {helper.now() - t0}")
     else:
         logger.info(
             f"entered {flow.url} with fid={fid} after {helper.now() - t0}")
-    out = ray.get(actor.get_debug.remote())
-    logger.info(f"returning: {out}")
     ray.shutdown()
     return result

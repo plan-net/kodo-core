@@ -11,9 +11,9 @@ from litestar.response import ServerSentEvent, Template
 import kodo.service.controller
 from kodo.log import logger
 from kodo.worker.instrument.formatter import ResultFormatter
-from kodo.worker.instrument.result import ExecutionResult
+from kodo.remote.result import ExecutionResult
 from kodo.worker.process.executor import FINAL_STATE
-
+from kodo.remote.result import ExecutionResult
 
 class ExecutionControl(kodo.service.controller.Controller):
     path = "/flow"
@@ -86,105 +86,70 @@ class ExecutionControl(kodo.service.controller.Controller):
             self,
             state: State,
             request: Request,
-            fid: str,
-            format: Optional[Literal["json", "html", "htmx"]] = None) -> Union[
-                Response, Template]:
-        fid = ObjectId(fid)
-        result = ExecutionResult(state, fid)
-        alive = False
+            fid: str) -> Union[Response]:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
         try:
-            await result.read()
-            alive = await result.verify()
-            assert result.flow
-        except:
-            return Response(content=f"flow {fid} not found", status_code=404)
-        
-        def file_size(file: Path) -> Union[int, None]:
-            return file.stat().st_size if file.exists() else None
-
+            await result.aread()
+        except FileNotFoundError:
+            return Response(content={"fid": fid}, status_code=404)
         provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
-        ret = {
-            "start_time": result.start_time(),
-            "end_time": result.end_time(),
-            "status": result.status(),
-            "total": result.total_time(),
-            "bootup": result.tearup(),
-            "runtime": result.runtime(),
-            "teardown": result.teardown(),
-            "version": result.version,
-            "entry_point": result.entry_point,
-            "flow": result.flow.model_dump(),
-            "fid": result.fid,
-            "executor": result.executor,
-            "ray": result.ray,
-            "stdout": file_size(result.stdout_file),
-            "stderr": file_size(result.stderr_file),
-            "inactive": result.inactive_time(),
-            "pid": result.pid,
-            "ppid": result.ppid,
-            "alive": alive
-        }
-        if format == "htmx":
-            return Template(template_name="status.htmx", context=ret)
-        elif preferred_type == MediaType.JSON or format == "json":
-            return Response(content=ret)
-        return Template(template_name="status.html", context=ret)
+        return Response(content=result.data)
 
-    @get("/{fid:str}/stdout")
-    async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        return ServerSentEvent(await result.stream_stdout())
+    # @get("/{fid:str}/stdout")
+    # async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:
+    #     result = ExecutionResult(state, fid)
+    #     return ServerSentEvent(await result.stream_stdout())
     
-    @get("/{fid:str}/stderr")
-    async def stream_stderr(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        return ServerSentEvent(await result.stream_stderr())
+    # @get("/{fid:str}/stderr")
+    # async def stream_stderr(self, state: State, fid: str) -> ServerSentEvent:
+    #     result = ExecutionResult(state, fid)
+    #     return ServerSentEvent(await result.stream_stderr())
 
-    @get("/{fid:str}/event")
-    async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        return ServerSentEvent(await result.stream_event())
+    # @get("/{fid:str}/event")
+    # async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
+    #     result = ExecutionResult(state, fid)
+    #     return ServerSentEvent(await result.stream_event())
 
-    @get("/{fid:str}/event/html")
-    async def html_event(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        async def process_stream():
-            formatter = ResultFormatter()
-            stream = await result.stream_event()
-            async for event in stream:
-                out = formatter.format(event)
-                if out:
-                    yield {"data": out, "event": "html"}
-            yield {"data": "end of process", "event": "eof"}
-        return ServerSentEvent(process_stream())
+    # @get("/{fid:str}/event/html")
+    # async def html_event(self, state: State, fid: str) -> ServerSentEvent:
+    #     result = ExecutionResult(state, fid)
+    #     async def process_stream():
+    #         formatter = ResultFormatter()
+    #         stream = await result.stream_event()
+    #         async for event in stream:
+    #             out = formatter.format(event)
+    #             if out:
+    #                 yield {"data": out, "event": "html"}
+    #         yield {"data": "end of process", "event": "eof"}
+    #     return ServerSentEvent(process_stream())
 
-    @delete("/{fid:str}/kill")
-    async def kill_flow(self, state: State, fid: str) -> None:
-        result = ExecutionResult(state, fid)
-        await result.read()
-        if result.pid:
-            logger.warning(f"request to kill flow {fid} with pid {result.pid}")
-            try:
-                proc = psutil.Process(result.pid)
-                if proc.is_running():
-                    for child in proc.children(recursive=True):
-                        logger.warning(f"kill child {child.pid}")
-                        child.terminate()
-                    proc.terminate()
-                    logger.warning(f"killed flow {fid} with pid {result.pid}")
-            except:
-                logger.error(f"failed to kill flow {fid}")
-        else:
-            logger.error(f"request to kill flow {fid} with no pid")
-        result.kill()
+    # @delete("/{fid:str}/kill")
+    # async def kill_flow(self, state: State, fid: str) -> None:
+    #     result = ExecutionResult(state, fid)
+    #     await result.read()
+    #     if result.pid:
+    #         logger.warning(f"request to kill flow {fid} with pid {result.pid}")
+    #         try:
+    #             proc = psutil.Process(result.pid)
+    #             if proc.is_running():
+    #                 for child in proc.children(recursive=True):
+    #                     logger.warning(f"kill child {child.pid}")
+    #                     child.terminate()
+    #                 proc.terminate()
+    #                 logger.warning(f"killed flow {fid} with pid {result.pid}")
+    #         except:
+    #             logger.error(f"failed to kill flow {fid}")
+    #     else:
+    #         logger.error(f"request to kill flow {fid} with no pid")
+    #     result.kill()
 
 
-    @delete("/{fid:str}/remove")
-    async def remove_flow(self, state: State, fid: str) -> None:
-        result = ExecutionResult(state, fid)
-        await result.read()
-        if result.status() not in FINAL_STATE:
-            raise Exception(f"flow {fid} is still running")
-        shutil.rmtree(str(result.event_file.parent))
+    # @delete("/{fid:str}/remove")
+    # async def remove_flow(self, state: State, fid: str) -> None:
+    #     result = ExecutionResult(state, fid)
+    #     await result.read()
+    #     if result.status() not in FINAL_STATE:
+    #         raise Exception(f"flow {fid} is still running")
+    #     shutil.rmtree(str(result.event_file.parent))
