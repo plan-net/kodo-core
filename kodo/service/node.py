@@ -3,7 +3,7 @@ from pathlib import Path
 import traceback
 
 import uvicorn
-from litestar import Litestar, Response, Request
+from litestar import Litestar, Response, Request, Router
 from litestar.config.cors import CORSConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.openapi.config import OpenAPIConfig
@@ -15,7 +15,7 @@ from litestar.middleware.base import DefineMiddleware
 
 import kodo.log
 import kodo.service.signal
-import kodo.service.security
+from kodo.service.security import jwt_middleware_factory
 import kodo.worker.loader
 from kodo.log import logger
 from kodo.service.route.main import NodeControl
@@ -49,20 +49,42 @@ def app_exception_handler(request: Request, exc: Exception) -> Response:
 def create_app(**kwargs) -> Litestar:
     loader = kodo.worker.loader.Loader()
     state = loader.load()
-    amw = DefineMiddleware(kodo.service.security.JWTAuthMiddleware, exclude=["/docs"])
+
+    middleware = []
+    if "auth_jwks_url" in state and  state.auth_jwks_url:
+        # Use url as audience if "KODO_AUTH_AUDIENCE" not set
+        aud = state.auth_audience if "auth_audience" in state else state.url
+        middleware.append(DefineMiddleware(jwt_middleware_factory(state.auth_jwks_url, aud), 
+                                           ))
+    else:
+        logger.warning("Auth middleware not enabled. Service is not secured!.")
+    node_mw = Router(
+        path="/",
+        middleware=middleware,
+        route_handlers=[NodeControl],
+    )
+    flow_mw = Router(
+        path="/flows",
+        middleware=middleware,
+        route_handlers=[FlowControl],
+    )
+    exec_mw = Router(
+        path="/flow",
+        route_handlers=[ExecutionControl],
+    )
+
     app = Litestar(
         cors_config=CORSConfig(allow_origins=state.cors_origins),
         route_handlers=[
-            NodeControl,
-            FlowControl,
-            ExecutionControl,
+            node_mw,
+            flow_mw,
+            exec_mw,
             create_static_files_router(
                 path="/static", directories=[Path(__file__).parent / "static"]
             ),
         ],
         on_startup=[NodeControl.startup],
         on_shutdown=[NodeControl.shutdown],
-        middleware=[amw],
         listeners=[
             kodo.service.signal.connect,
             kodo.service.signal.update,

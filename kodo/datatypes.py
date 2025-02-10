@@ -26,7 +26,9 @@ class Option(BaseSettings):
     RETRY: Optional[int] = 9
     RAY: Optional[bool] = False
 
-    JWKS_URL: Optional[str] = None
+    AUTH_JWKS_URL: Optional[str] = None
+    AUTH_AUDIENCE: Optional[str] = None
+    
 
     @field_validator('URL', mode='before')
     def url_to_str(cls, v):
@@ -102,6 +104,7 @@ class Flow(BaseModel):
 
 class NodeInfo(BaseModel):
     url: str
+    audience: Optional[str] = None
     organization: Optional[str] = None
 
 
@@ -181,10 +184,5 @@ class MODE:
 class User(BaseModel):
     name: str
     email: str
+    roles: list[str]
     
-
-
-class Auth(BaseModel):
-    expires: datetime.datetime
-    iat: datetime.datetime
-    authenticated: bool

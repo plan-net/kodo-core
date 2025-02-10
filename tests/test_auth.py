@@ -3,8 +3,11 @@ import json
 import tempfile
 import jwt
 import os
+import threading
+import requests
 
 from kodo.service.security import JWTAuthMiddleware, JWKS, validate_jwt
+from kodo.service.node import run_service
 from pytest_httpserver import HTTPServer, httpserver
 
 
@@ -44,14 +47,14 @@ def test_jwks_fetch_file(jwks):
 
 def test_validate_jwt(rsa_key_pair, jwks):
     KID = "12345"
-    private_key, public_key = rsa_key_pair
+    private_key, _ = rsa_key_pair
     jwks = JWKS("file://" + os.path.abspath("tests/assets/public.cert.json"))
     token = jwt.encode(
-        {"sub": "1234567890", "name": "John Doe"},
+        {"sub": "1234567890", "name": "John Doe", "aud": "kodo"},
         jwt.algorithms.RSAAlgorithm.from_jwk(private_key),
         algorithm="RS256",
         headers={"kid": KID},
     )
-    decoded = validate_jwt(token, jwks)
+    decoded = validate_jwt(token, "kodo", jwks)
     assert decoded["sub"] == "1234567890"
     assert decoded["name"] == "John Doe"

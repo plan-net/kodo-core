@@ -17,7 +17,6 @@ from kodo.worker.act import FlowAction
 
 
 class FlowControl(kodo.service.controller.Controller):
-    path = "/flows"
 
     @get("/",
          summary="Retrieve Active Flows",

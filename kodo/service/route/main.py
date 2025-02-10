@@ -21,7 +21,6 @@ from kodo.log import logger
 
 
 class NodeControl(kodo.service.controller.Controller):
-    path = "/"
 
     @staticmethod
     async def startup(app: Litestar) -> None:

@@ -34,7 +34,7 @@ class JWKS:
 
 
 # Function to validate the JWT token
-def validate_jwt(token, jwks: JWKS):
+def validate_jwt(token, audience : str, jwks: JWKS):
     try:
         # Decode the JWT token to extract the header
         unverified_header = jwt.get_unverified_header(token)
@@ -49,7 +49,7 @@ def validate_jwt(token, jwks: JWKS):
             token,
             public_key,
             algorithms=["RS256", "RS384", "RS512"],
-            audience="account"
+            audience=audience
         )
         return decoded_token
 

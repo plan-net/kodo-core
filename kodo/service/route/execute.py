@@ -14,7 +14,6 @@ from kodo.worker.result import FINAL_STATE, ExecutionResult
 
 
 class ExecutionControl(kodo.service.controller.Controller):
-    path = "/flow"
 
     @get("/")
     async def listing(

@@ -2,7 +2,7 @@
 - organization: Plan.Net Journey Agentic Node
 - cache_data: ./data/3366.json
 - connect:
-  - http://localhost:3367
+  - http://localhost:3371
 - registry: false
 - feed: false
 - screen_level: debug
