@@ -21,7 +21,7 @@ class JWKS:
             else:
                 raise ValueError("Invalid URL scheme")
         except Exception as e:
-            print(f"Error reading JWKS: {e}")
+            logger.error(f"Error reading JWKS: {e}")
             raise
 
     def _ltd(self, key_list):
