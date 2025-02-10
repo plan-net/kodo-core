@@ -15,7 +15,7 @@ from litestar.middleware.base import DefineMiddleware
 
 import kodo.log
 import kodo.service.signal
-from kodo.service.security import jwt_middleware_factory
+from kodo.service.security import *
 import kodo.worker.loader
 from kodo.log import logger
 from kodo.service.route.main import NodeControl
@@ -50,35 +50,44 @@ def create_app(**kwargs) -> Litestar:
     loader = kodo.worker.loader.Loader()
     state = loader.load()
 
-    middleware = []
-    if "auth_jwks_url" in state and  state.auth_jwks_url:
-        # Use url as audience if "KODO_AUTH_AUDIENCE" not set
-        aud = state.auth_audience if "auth_audience" in state else state.url
-        middleware.append(DefineMiddleware(jwt_middleware_factory(state.auth_jwks_url, aud), 
-                                           ))
+    flows_middleware = []
+    exec_middleware = []
+    if "auth_jwks_url" in state and state.auth_jwks_url:        
+        jwt_mw = DefineMiddleware(
+            jwt_middleware_factory(state)
+        )
+        flows_middleware.append(jwt_mw)
+        flows_middleware.append(
+            DefineMiddleware(RoleValidatorMiddleware, allowed_roles=[ROLE_REGISTRY])
+        )
+        exec_middleware.append(jwt_mw)
+        exec_middleware.append(
+            DefineMiddleware(RoleValidatorMiddleware, allowed_roles=[ROLE_FLOWS])
+        )
     else:
-        logger.warning("Auth middleware not enabled. Service is not secured!.")
-    node_mw = Router(
+        logger.warning("Auth middleware not enabled. Node is not secured!.")
+
+    node_rh = Router(
         path="/",
-        middleware=middleware,
         route_handlers=[NodeControl],
     )
-    flow_mw = Router(
+    flow_rh = Router(
         path="/flows",
-        middleware=middleware,
+        middleware=flows_middleware,
         route_handlers=[FlowControl],
     )
-    exec_mw = Router(
+    exec_rh = Router(
         path="/flow",
+        middleware=exec_middleware,
         route_handlers=[ExecutionControl],
     )
 
     app = Litestar(
         cors_config=CORSConfig(allow_origins=state.cors_origins),
         route_handlers=[
-            node_mw,
-            flow_mw,
-            exec_mw,
+            node_rh,
+            flow_rh,
+            exec_rh,
             create_static_files_router(
                 path="/static", directories=[Path(__file__).parent / "static"]
             ),

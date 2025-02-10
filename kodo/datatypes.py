@@ -27,6 +27,7 @@ class Option(BaseSettings):
     RAY: Optional[bool] = False
 
     AUTH_JWKS_URL: Optional[str] = None
+    AUTH_JWT_ROLE_PATH : Optional[str] = "resource_access/%AUD%/roles"
     AUTH_AUDIENCE: Optional[str] = None
     
 
