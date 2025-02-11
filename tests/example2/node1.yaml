@@ -1,7 +1,7 @@
-- url: http://localhost:3373
+- url: http://localhost:3371
 - organization: Plan.Net Gruppe für digitale Kommunikation GmbH & Co. KG
 - connect:
-  - http://localhost:3371
+  - http://localhost:3370
 - registry: false
 - feed: false
 - screen_level: info
