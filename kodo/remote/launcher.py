@@ -18,6 +18,7 @@ from kodo.common import Launch
 from kodo.datatypes import DynamicModel, Flow, LaunchResult
 from kodo.log import LOG_FORMAT, logger
 
+
 WINDOWS = ("Scripts", "python.exe")
 LINUX = ("bin", "python")
 
