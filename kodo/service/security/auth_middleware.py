@@ -3,7 +3,7 @@ from typing import Any, Protocol
 
 from litestar import Request
 from litestar.connection import ASGIConnection
-from litestar.exceptions import HTTPException, NotAuthorizedException
+from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
 from litestar.middleware import (AbstractAuthenticationMiddleware,
                                  AuthenticationResult)
 from litestar.types import ASGIApp, Receive, Scope, Send
@@ -34,8 +34,8 @@ class RoleValidatorMiddleware(Protocol):
                     has_role = True
                     break
             if not has_role:
-                logger.error(f"User {user.username} does not have the required role.")
-                raise HTTPException(status_code=403, detail="Forbidden")
+                logger.debug(f"User {user.name} does not have the required role.")
+                raise PermissionDeniedException()
         await self.app(scope, receive, send)
 
 

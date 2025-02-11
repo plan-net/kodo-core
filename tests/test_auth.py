@@ -15,34 +15,33 @@ from pytest_httpserver import HTTPServer, httpserver
 
 from tests.shared import *
 
-
-@pytest.fixture(scope="module")
-def rsa_key_pair():
+def _rsa_key_pair():
     with open("tests/assets/private.key.json", "rb") as f:
         private_key = json.load(f)
     with open("tests/assets/public.cert.json", "rb") as f:
         jwks_cert = json.load(f)
     return private_key, jwks_cert
 
-
-@pytest.fixture(scope="function")
-def auth_header(rsa_key_pair):
-    KID = "12345"
-    private_key, _ = rsa_key_pair
-    token = jwt.encode(
-        {"sub": "1234567890", "name": "John Doe", "aud": "kodo", "email": "john.doe@example.com",
-         "resource_access": {"kodo": {"roles": ["registry"]}}},
-        jwt.algorithms.RSAAlgorithm.from_jwk(private_key),
-        algorithm="RS256",
-        headers={"kid": KID},
-    )
-    return {"Authorization": f"Bearer {token}"}
-
+@pytest.fixture(scope="module")
+def rsa_key_pair():
+    return _rsa_key_pair()
 
 @pytest.fixture(scope="module")
 def jwks():
     with open("tests/assets/jwks_certs.json") as f:
         return json.load(f)
+    
+def create_auth_header(roles=["registry"]):
+    KID = "12345"
+    private_key, _ = _rsa_key_pair()
+    token = jwt.encode(
+        {"sub": "1234567890", "name": "John Doe", "aud": "kodo", "email": "john.doe@example.com",
+         "resource_access": {"kodo": {"roles": roles}}},
+        jwt.algorithms.RSAAlgorithm.from_jwk(private_key),
+        algorithm="RS256",
+        headers={"kid": KID},
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 
 def test_jwks_fetch_wrong_scheme():
@@ -79,7 +78,7 @@ def test_validate_jwt(rsa_key_pair, jwks):
     assert decoded["name"] == "John Doe"
 
 
-async def test_authenticated_query(auth_header):
+async def test_authenticated_query():
     node = Service(
         url="http://localhost:3370",
         organization="node",
@@ -91,6 +90,7 @@ async def test_authenticated_query(auth_header):
     )
     node.start()
     node.wait()
+    auth_header = create_auth_header()
     resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
     assert len(resp.json()["items"]) == 10
     assert resp.json()["total"] == 50
@@ -100,7 +100,7 @@ async def test_authenticated_query(auth_header):
     df0 = pd.DataFrame(p0["items"])
     assert df0.shape[0] == 15
 
-async def test_wrong_audience(auth_header):
+async def test_wrong_audience():
     node = Service(
         url="http://localhost:3370",
         organization="node",
@@ -112,5 +112,23 @@ async def test_wrong_audience(auth_header):
     )
     node.start()
     node.wait()
+    auth_header = create_auth_header()
     resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
     assert resp.status_code == 401
+
+
+async def test_wrong_roles():
+    node = Service(
+        url="http://localhost:3370",
+        organization="node",
+        registry=True,
+        feed=True,
+        loader="tests.test_node:loader4",
+        auth_jwks_url="file://" + os.path.abspath("tests/assets/public.cert.json"),
+        auth_audience="kodo",
+    )
+    node.start()
+    node.wait()
+    auth_header = create_auth_header(roles=["stapler"])
+    resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
+    assert resp.status_code == 403
