@@ -1,9 +1,9 @@
 import os
 import signal
 from typing import Union
-import ray
-import logging
+
 import httpx
+import ray
 from litestar import Litestar, Request, delete, get, post
 from litestar.datastructures import State
 from litestar.exceptions import HTTPException
@@ -18,8 +18,8 @@ import kodo.service.signal
 import kodo.worker.loader
 from kodo.datatypes import (Connect, DefaultResponse, Disconnect, Provider,
                             ProviderMap)
-from kodo.log import logger, LOG_FORMAT
-from kodo.remote.launcher import RAY_NAMESPACE, RAY_ENV
+from kodo.log import logger
+
 
 class NodeControl(kodo.service.controller.Controller):
     path = "/"

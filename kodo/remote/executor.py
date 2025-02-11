@@ -149,4 +149,3 @@ if __name__ == "__main__":
             os.waitpid(pid, 0)
             os._exit(0)
         main(False, *sys.argv[1:3])
-        sys.exit(0)

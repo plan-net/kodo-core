@@ -44,12 +44,6 @@ class FlowCallable:
     def _action(self, key, value):
         self.actor.enqueue.remote(**{key: value})
 
-    result = _create_action_method("result")
-    meta = _create_action_method("meta")
-    progress = _create_action_method("progress")
-    final = _create_action_method("final")
-    error = _create_action_method("error")
-
     def instrument(self) -> None:
         sig = inspect.signature(self.flow)
         bound_args = sig.bind_partial()
@@ -63,6 +57,12 @@ class FlowCallable:
 
     def finish(self, *args, **kwargs):
         pass
+
+    result = _create_action_method("result")
+    meta = _create_action_method("meta")
+    progress = _create_action_method("progress")
+    final = _create_action_method("final")
+    error = _create_action_method("error")
 
 class FlowCrewAI(FlowCallable):
 
