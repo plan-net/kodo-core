@@ -184,7 +184,7 @@ class Loader:
             await fh.write(dump.model_dump_json())
         logger.debug(f"saved cache {file}")
 
-    def load_from_cache(self, state) -> bool:  # todo: make async
+    def load_from_cache(self, state) -> bool:
         file = Path(state.cache_data)
         if not file.exists():
             return False

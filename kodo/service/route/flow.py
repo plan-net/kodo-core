@@ -113,7 +113,7 @@ class FlowControl(kodo.service.controller.Controller):
             state: State,
             request: Request,
             path: str,
-            format: Optional[str]="html") -> Union[Template, Dict]:
+            format: Optional[str]="html") -> Union[Template, Dict, Redirect]:
         logger.info(f"GET /flows{path}")
         provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
@@ -127,6 +127,8 @@ class FlowControl(kodo.service.controller.Controller):
         }
         if preferred_type == MediaType.JSON or format == "json":
             return ret
+        if result.is_launch:
+            return Redirect(f"/flow/{result.fid}")
         return Template(
             template_name="enter.html", 
             context=ret, 
@@ -137,7 +139,7 @@ class FlowControl(kodo.service.controller.Controller):
             self,
             state: State,
             request: Request,
-            path: str) -> Union[dict, Redirect]:
+            path: str) -> Union[dict, Redirect, Template]:
         logger.info(f"POST /flows{path}")
         flow, result = await self._handle(state, request, path)
         node = NodeInfo(url=state.url, organization=state.organization)
@@ -146,8 +148,13 @@ class FlowControl(kodo.service.controller.Controller):
             "flow": flow,
             "node": node
         }
-        return Redirect(f"/flow/{result.fid}")
-        #return ret
+        if result.is_launch:
+            return Redirect(f"/flow/{result.fid}")
+        return Template(
+            template_name="enter.html", 
+            context=ret, 
+            media_type=MediaType.HTML)
+
     
     @get("/counts",
          summary="Retrieve Node and Flow Counts",

@@ -18,7 +18,6 @@ from kodo.common import Launch
 from kodo.datatypes import DynamicModel, Flow, LaunchResult
 from kodo.log import LOG_FORMAT, logger
 
-
 WINDOWS = ("Scripts", "python.exe")
 LINUX = ("bin", "python")
 
@@ -32,15 +31,24 @@ STDERR_FILE = "stderr.log"
 STOP_FILE = "_done_"
 KILL_FILE = "_killed_"
 
-PENDING_STATE = "pending"  # set by node service with request to launch
-BOOTING_STATE = "booting"  # set by detached process on the node service
-STARTING_STATE = "starting"  # set by remote process controlled by detached process
-RUNNING_STATE = "running"  # set by sub process controlled by remote process
-STOPPING_STATE = "stopping"  # set by remote process controlled by detached process
-RETURNING_STATE = "returning"  # set by detached process on the node service when remote returns
-BREAK_STATE = "break"  # set by detached process on the node service when the event queue is empty
-COMPLETED_STATE = "completed"  # set by detached process on the node service on success
-ERROR_STATE = "error"  # set by detached process on the node service on failure
+# set by node service with request to launch
+PENDING_STATE = "pending"  
+# set by detached process on the node service
+BOOTING_STATE = "booting"  
+# set by remote process controlled by detached process
+STARTING_STATE = "starting"  
+# set by sub process controlled by remote process
+RUNNING_STATE = "running"  
+# set by remote process controlled by detached process
+STOPPING_STATE = "stopping"  
+# set by detached process on the node service when remote returns
+RETURNING_STATE = "returning"  
+# set by detached process on the node service when the event queue is empty
+BREAK_STATE = "break"  
+# set by detached process on the node service on success
+COMPLETED_STATE = "completed"  
+# set by detached process on the node service on failure
+ERROR_STATE = "error"  
 
 FINAL_STATE = (ERROR_STATE, COMPLETED_STATE)
 
