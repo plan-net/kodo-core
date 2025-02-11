@@ -94,7 +94,23 @@ async def test_authenticated_query(auth_header):
     resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
     assert len(resp.json()["items"]) == 10
     assert resp.json()["total"] == 50
+    assert resp.status_code == 200
 
     p0 = httpx.get(f"{node.url}/flows?pp=15&p=0", headers=auth_header).json()
     df0 = pd.DataFrame(p0["items"])
     assert df0.shape[0] == 15
+
+async def test_wrong_audience(auth_header):
+    node = Service(
+        url="http://localhost:3370",
+        organization="node",
+        registry=True,
+        feed=True,
+        loader="tests.test_node:loader4",
+        auth_jwks_url="file://" + os.path.abspath("tests/assets/public.cert.json"),
+        auth_audience="kodo2",
+    )
+    node.start()
+    node.wait()
+    resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
+    assert resp.status_code == 401

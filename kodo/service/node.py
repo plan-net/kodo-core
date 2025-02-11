@@ -41,7 +41,7 @@ def app_exception_handler(request: Request, exc: Exception) -> Response:
             "status_code": status_code,
             "stacktrace": traceback.format_exc(),
         },
-        status_code=500,
+        status_code=status_code,
     )
 
 
