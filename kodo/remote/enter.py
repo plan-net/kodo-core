@@ -150,7 +150,7 @@ def execute_flow(fid: str) -> None:
     inputs = data["launch"].payload
     ray.get(actor.enqueue.remote(status=RUNNING_STATE))  # type: ignore
     ctx = ray.get_runtime_context()
-    ray.get(actor.enqueue.remote(system={
+    ray.get(actor.enqueue.remote(remote={
         "node_id": ctx.get_node_id(),
         "job_id": ctx.get_job_id(),
         "pid": os.getpid(),

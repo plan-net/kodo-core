@@ -98,6 +98,13 @@ def main(debug: bool, server: str, exec_path: str) -> None:
     if debug:
         ray.get(actor.enqueue.remote(debug="running in debug mode"))  # type: ignore
     ray.get(actor.enqueue.remote(status=BOOTING_STATE))  # type: ignore
+    ctx = ray.get_runtime_context()
+    ray.get(actor.enqueue.remote(driver={
+        "node_id": ctx.get_node_id(),
+        "job_id": ctx.get_job_id(),
+        "pid": os.getpid(),
+        "ppid": os.getppid()
+    }))
     unready = [execute.remote(actor, actor_name)]
     ret_value = None
     try:
@@ -142,3 +149,4 @@ if __name__ == "__main__":
             os.waitpid(pid, 0)
             os._exit(0)
         main(False, *sys.argv[1:3])
+        sys.exit(0)
