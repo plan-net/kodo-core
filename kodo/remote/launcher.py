@@ -24,10 +24,7 @@ LINUX = ("bin", "python")
 VENV_MODULE = "kodo.remote.enter"
 EXEC_MODULE = "kodo.remote.executor"
 RAY_NAMESPACE = "kodo"
-if os.environ.get("DEBUGPY_RUNNING", False):
-    RAY_ENV = {"env_vars": {"RAY_DEBUG": "1"}} 
-else:
-    RAY_ENV = {}
+RAY_ENV = {"env_vars": {"RAY_DEBUG": "1"}} if helper.is_debug() else {}
 EVENT_LOG = "event.log"
 STDOUT_FILE = "stdout.log"
 STDERR_FILE = "stderr.log"

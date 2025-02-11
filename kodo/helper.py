@@ -1,7 +1,8 @@
 import asyncio
 import datetime
-from typing import Callable
+import sys
 import time
+from typing import Callable
 
 
 def now():
@@ -54,3 +55,6 @@ class Backoff:
 
 def stat(nodes):
     return f"nodes: {len(nodes)}, flows: {sum([len(n.flows) for n in nodes])}"
+
+def is_debug():
+    return sys.gettrace() is not None or "debugpy" in sys.modules

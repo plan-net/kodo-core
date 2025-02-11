@@ -7,13 +7,14 @@ from bson import ObjectId
 from litestar import MediaType, Request, Response, delete, get
 from litestar.datastructures import State
 from litestar.response import ServerSentEvent, Template
-
+from litestar.exceptions import NotFoundException
 import kodo.service.controller
 from kodo.log import logger
 from kodo.worker.instrument.formatter import ResultFormatter
 from kodo.remote.result import ExecutionResult
 from kodo.worker.process.executor import FINAL_STATE
 from kodo.remote.result import ExecutionResult
+from kodo.datatypes import Flow
 
 class ExecutionControl(kodo.service.controller.Controller):
     path = "/flow"
@@ -30,7 +31,7 @@ class ExecutionControl(kodo.service.controller.Controller):
         exec_path = Path(state.exec_data)
         execs = []
         for folder_path in exec_path.iterdir():
-            if folder_path.is_dir() and not folder_path.name.startswith("_"):
+            if folder_path.is_dir():
                 try:
                     execs.append((ObjectId(folder_path.name).generation_time,
                                   folder_path.name))
@@ -46,26 +47,29 @@ class ExecutionControl(kodo.service.controller.Controller):
                 execs.pop(0)
                 continue
             _, fid = execs.pop(0)
-            result = ExecutionResult(state, fid)
-            await result.read()
-            if result.status() in FINAL_STATE:
+            result = ExecutionResult(exec_path.joinpath(fid))
+            await result.aread()
+            if result.status in FINAL_STATE:
                 alive = None
             else:
-                alive = result.check_alive()
-            if result.fid is None:
+                alive = None
+            if result.launch.fid is None:
                 logger.error(f"flow {fid} has no fid")
                 continue
             if result.flow is None:
                 logger.error(f"flow {fid} has no flow")
                 continue
             page.append({
-                "fid": result.fid,
-                "status": result.status(),
-                "start_time": result.start_time(),
-                "end_time": result.end_time(),
-                "total": result.total_time(),
-                "flow": result.flow.model_dump() if result.flow else None,
-                "inactive": result.inactive_time(),
+                "fid": result.launch.fid,
+                "status": result.status,
+                "launch": result.launch,
+                "version": result.version,
+                "has_final": result.has_final,
+                "timing": result.timing,
+                "duration": result.duration,
+                "progress": result.progress,
+                "flow": result.flow,
+                #"inactive": result.inactive_time(),
                 "alive": alive
             })
         provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
@@ -77,8 +81,9 @@ class ExecutionControl(kodo.service.controller.Controller):
             "p": p,
             "pp": pp,
         }
-        if preferred_type == MediaType.JSON:
+        if preferred_type == MediaType.JSON or (format and format == "json"):
             return Response(content=ret)
+        #return Response(content=ret)
         return Template(template_name="jobs.html", context=ret)
 
     @get("/{fid:str}")
@@ -91,11 +96,45 @@ class ExecutionControl(kodo.service.controller.Controller):
         try:
             await result.aread()
         except FileNotFoundError:
-            return Response(content={"fid": fid}, status_code=404)
+            raise NotFoundException(f"flow {fid} not found")
         provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
         return Response(content=result.data)
+
+    @get("/{fid:str}/final")
+    async def final_result(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            await result.aread()
+            final = await result.final_result()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        return Response(content=final)
+
+    @get("/{fid:str}/result")
+    async def result(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            await result.aread()
+            ret = await result.result()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        return Response(content=ret)
 
     # @get("/{fid:str}/stdout")
     # async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:

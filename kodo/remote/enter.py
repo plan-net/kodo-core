@@ -1,5 +1,6 @@
 import inspect
 import sys
+import os
 from typing import Any, Callable, Optional
 
 import crewai
@@ -146,8 +147,15 @@ def execute_flow(fid: str) -> None:
     flow_name = data["environment"]["flow_name"]
     module = data["environment"]["module"]
     flow_obj: Any = flow_factory(module, flow_name)
-    inputs = data["launch"]["payload"]
+    inputs = data["launch"].payload
     ray.get(actor.enqueue.remote(status=RUNNING_STATE))  # type: ignore
+    ctx = ray.get_runtime_context()
+    ray.get(actor.enqueue.remote(system={
+        "node_id": ctx.get_node_id(),
+        "job_id": ctx.get_job_id(),
+        "pid": os.getpid(),
+        "ppid": os.getppid()
+    }))
     flow = flow_obj.flow
     cls: Any
     if isinstance(flow, crewai.Crew):

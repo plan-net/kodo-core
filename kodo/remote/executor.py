@@ -5,6 +5,7 @@ from subprocess import PIPE, Popen
 import ray
 from ray.util.queue import Queue
 
+from kodo import helper
 from kodo.remote.launcher import (BOOTING_STATE, BREAK_STATE, COMPLETED_STATE,
                                   ERROR_STATE, RAY_ENV, RAY_NAMESPACE,
                                   RETURNING_STATE, STARTING_STATE,
@@ -54,11 +55,15 @@ class EventStream:
 
 @ray.remote
 def execute(actor: EventStream, actor_name: str):
+    # import debugpy
+    # if not debugpy.is_client_connected():
+    #     debugpy.listen(("localhost", 63255))
+    #     debugpy.wait_for_client() 
     ray.get(actor.enqueue.remote(status=STARTING_STATE))  # type: ignore
     data: dict = ray.get(actor.get_data.remote())  # type: ignore
     executable = data["environment"]["executable"]
     server = data["server"]
-    fid = data["launch"]["fid"]
+    fid = data["launch"].fid
     cwd = data["environment"]["cwd"]
     proc = Popen(
         [executable, "-m", VENV_MODULE, "execute", server, fid], 
@@ -82,7 +87,7 @@ def main(debug: bool, server: str, exec_path: str) -> None:
     result = ExecutionResult(exec_path)    
     result.read()
     result.open_write()
-    actor_name = f"{result.launch["fid"]}.exec"
+    actor_name = f"{result.launch.fid}.exec"
     actor = EventStream.options(name=actor_name).remote()  # type: ignore
     ray.get(actor.ready.remote())
     actor.initialise.remote(
@@ -123,7 +128,7 @@ def main(debug: bool, server: str, exec_path: str) -> None:
 
 
 if __name__ == "__main__":
-    if sys.gettrace() is not None or "debugpy" in sys.modules:
+    if helper.is_debug():
         main(True, *sys.argv[1:3])
         sys.exit(0)
     else:
