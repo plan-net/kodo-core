@@ -2,7 +2,7 @@ import httpx
 import time
 import os
 import pytest
-from tests.test_node import Service
+from tests.shared import *
 
 def _online(url: str):
     try:

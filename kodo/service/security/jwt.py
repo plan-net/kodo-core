@@ -1,9 +1,9 @@
-import requests
-import jwt
-from jwt import PyJWTError
-
-from urllib.parse import urlparse
 import json
+from urllib.parse import urlparse
+
+import jwt
+import requests
+from jwt import PyJWTError
 
 from kodo.log import logger
 

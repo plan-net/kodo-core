@@ -6,9 +6,14 @@ import os
 import threading
 import requests
 
+import httpx
+import pandas as pd
+
 from kodo.service.security import JWTAuthMiddleware, JWKS, validate_jwt
 from kodo.service.node import run_service
 from pytest_httpserver import HTTPServer, httpserver
+
+from tests.shared import *
 
 
 @pytest.fixture(scope="module")
@@ -18,6 +23,20 @@ def rsa_key_pair():
     with open("tests/assets/public.cert.json", "rb") as f:
         jwks_cert = json.load(f)
     return private_key, jwks_cert
+
+
+@pytest.fixture(scope="function")
+def auth_header(rsa_key_pair):
+    KID = "12345"
+    private_key, _ = rsa_key_pair
+    token = jwt.encode(
+        {"sub": "1234567890", "name": "John Doe", "aud": "kodo", "email": "john.doe@example.com",
+         "resource_access": {"kodo": {"roles": ["registry"]}}},
+        jwt.algorithms.RSAAlgorithm.from_jwk(private_key),
+        algorithm="RS256",
+        headers={"kid": KID},
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +69,7 @@ def test_validate_jwt(rsa_key_pair, jwks):
     private_key, _ = rsa_key_pair
     jwks = JWKS("file://" + os.path.abspath("tests/assets/public.cert.json"))
     token = jwt.encode(
-        {"sub": "1234567890", "name": "John Doe", "aud": "kodo"},
+        {"sub": "1234567890", "name": "John Doe", "aud": "kodo",},
         jwt.algorithms.RSAAlgorithm.from_jwk(private_key),
         algorithm="RS256",
         headers={"kid": KID},
@@ -58,3 +77,24 @@ def test_validate_jwt(rsa_key_pair, jwks):
     decoded = validate_jwt(token, "kodo", jwks)
     assert decoded["sub"] == "1234567890"
     assert decoded["name"] == "John Doe"
+
+
+async def test_authenticated_query(auth_header):
+    node = Service(
+        url="http://localhost:3370",
+        organization="node",
+        registry=True,
+        feed=True,
+        loader="tests.test_node:loader4",
+        auth_jwks_url="file://" + os.path.abspath("tests/assets/public.cert.json"),
+        auth_audience="kodo",
+    )
+    node.start()
+    node.wait()
+    resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
+    assert len(resp.json()["items"]) == 10
+    assert resp.json()["total"] == 50
+
+    p0 = httpx.get(f"{node.url}/flows?pp=15&p=0", headers=auth_header).json()
+    df0 = pd.DataFrame(p0["items"])
+    assert df0.shape[0] == 15

@@ -1,17 +1,17 @@
-from litestar.middleware import (
-    AbstractAuthenticationMiddleware,
-    AuthenticationResult,
-)
-from litestar.connection import ASGIConnection
-from litestar.exceptions import NotAuthorizedException, HTTPException
-from litestar.types import ASGIApp, Scope, Receive, Send
-from litestar import Request
-from .jwt import JWKS, validate_jwt
-from kodo.datatypes import User
 import os
-from typing import Protocol, Any
+from typing import Any, Protocol
 
+from litestar import Request
+from litestar.connection import ASGIConnection
+from litestar.exceptions import HTTPException, NotAuthorizedException
+from litestar.middleware import (AbstractAuthenticationMiddleware,
+                                 AuthenticationResult)
+from litestar.types import ASGIApp, Receive, Scope, Send
+
+from kodo.datatypes import User
 from kodo.log import logger
+
+from .jwt import JWKS, validate_jwt
 
 ROLE_FLOWS = "flows"
 ROLE_REGISTRY = "registry"
@@ -46,11 +46,15 @@ class JWTAuthMiddleware(AbstractAuthenticationMiddleware):
 
     def map_claims_to_user(self, claims: dict) -> User: 
         dict_node = claims
-        # Traverse the dict to get the roles
-        for step in JWTAuthMiddleware.jwt_role_path:
-            dict_node = dict_node[step]
-        roles = dict_node
-        return User(**claims, roles=roles)
+        try:
+            # Traverse the dict to get the roles
+            for step in JWTAuthMiddleware.jwt_role_path:
+                dict_node = dict_node[step]
+            roles = dict_node
+            u = User(**claims, roles=roles)
+        except Exception as e:
+            raise NotAuthorizedException()
+        return u
 
     async def authenticate_request(
         self, connection: ASGIConnection
