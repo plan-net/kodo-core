@@ -4,7 +4,7 @@ from typing import List, Literal, Optional, Union
 
 import psutil
 from bson import ObjectId
-from litestar import MediaType, Request, Response, delete, get
+from litestar import MediaType, Request, Response, delete, get, post
 from litestar.datastructures import State
 from litestar.response import ServerSentEvent, Template
 from litestar.exceptions import NotFoundException
@@ -135,6 +135,48 @@ class ExecutionControl(kodo.service.controller.Controller):
         preferred_type = request.accept.best_match(
             provided_types, default=MediaType.JSON)
         return Response(content=ret)
+
+    @get("/{fid:str}/progress")
+    async def progress(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            ret = await result.progress()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        return Response(content=ret)
+
+    @post("/{fid:str}/kill")
+    async def kill(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            ret = await result.progress()
+            success = False
+            if ret["driver"]:
+                pid = ret["driver"].get("pid", None)
+                if pid:
+                    try:
+                        proc = psutil.Process(pid)
+                        proc.terminate()
+                        success = True
+                    except:
+                        pass
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        return Response(content=success)
 
     # @get("/{fid:str}/stdout")
     # async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:
