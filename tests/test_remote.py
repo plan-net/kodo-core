@@ -227,37 +227,6 @@ async def test_launch_request2(use_ray):
     assert result.status == "completed"
     node.stop()
 
-
-async def test_launch_request10(use_ray):
-    node = Service(
-        url="http://localhost:3371", 
-        loader="tests/example3/node4.yaml")
-    node.start()
-    err = 0
-    for i in range(10):
-        resp = httpx.post("http://localhost:3371/flows/flow1", timeout=None,
-                        data={"submit": "submit", "runtime": 3},
-                        headers={"Accept": "application/json"})
-        url = resp.headers["location"]
-        print(f"{i}, err: {err}", end=": ")
-        t0 = helper.now()
-        while True:
-            resp = httpx.get(
-                f"http://localhost:3371{url}", timeout=None, 
-                headers={"Accept": "application/json"})
-            assert resp.status_code == 200
-            if resp.json()["has_final"]:
-                print("O", end="")
-                break
-            print("w", end="")
-            await asyncio.sleep(1)
-            if helper.now() - t0 > datetime.timedelta(seconds=30):
-                print("X"*10)
-                err += 1
-                break
-    node.stop()
-
-
 async def test_kill(use_ray):
     node = Service(
         url="http://localhost:3371", 
@@ -301,3 +270,34 @@ async def test_kill(use_ray):
             #assert p.status() == "zombie"
         await asyncio.sleep(0.1)
     node.stop()
+
+async def test_launch_request10(use_ray):
+    node = Service(
+        url="http://localhost:3371", 
+        loader="tests/example3/node4.yaml")
+    node.start()
+    err = 0
+    for i in range(10):
+        resp = httpx.post("http://localhost:3371/flows/flow1", timeout=None,
+                        data={"submit": "submit", "runtime": 3},
+                        headers={"Accept": "application/json"})
+        url = resp.headers["location"]
+        print(f"{i}, err: {err}", end=": ")
+        t0 = helper.now()
+        while True:
+            resp = httpx.get(
+                f"http://localhost:3371{url}", timeout=None, 
+                headers={"Accept": "application/json"})
+            assert resp.status_code == 200
+            if resp.json()["has_final"]:
+                print("O", end="")
+                break
+            print("w", end="")
+            await asyncio.sleep(1)
+            if helper.now() - t0 > datetime.timedelta(seconds=30):
+                print("X"*10)
+                err += 1
+                break
+    node.stop()
+
+

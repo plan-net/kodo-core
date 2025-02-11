@@ -24,12 +24,10 @@ class Option(BaseSettings):
     
     TIMEOUT: Optional[int] = 30
     RETRY: Optional[int] = 9
-    RAY: Optional[bool] = False
     RAY_SERVER: Optional[str] = "localhost:6379"
     RAY_DASHBOARD: Optional[str] = "http://localhost:8265"
     ENV_HOME: Optional[str] = "./data/environ"
     VENV_DIR: Optional[str] = ".venv"
-    SYNC: Optional[bool] = True
 
     @field_validator('URL', mode='before')
     def url_to_str(cls, v):
@@ -84,14 +82,11 @@ class EnvironmentOption(Option):
 class DefaultResponse(BaseModel):
     url: str
     organization: Optional[str] = None
-    # connection: Optional[dict[str, Union[datetime.datetime, None]]] = {}
     registry: bool
     feed: bool
-    # started_at: datetime.datetime
     idle: bool
     now: datetime.datetime
     message: List[str]
-    ray: bool
 
 
 class Flow(BaseModel):
@@ -164,21 +159,6 @@ class IPCresult(BaseModel):
 
 class DynamicModel(RootModel[Dict[str, Any]]):
     pass
-
-
-WorkerMode = Literal[
-    "discover",
-    "enter",
-    "launch",
-    "execute"
-]
-
-
-class MODE:
-    DISCOVER: WorkerMode = "discover"
-    ENTER: WorkerMode = "enter"
-    LAUNCH: WorkerMode = "launch"
-    EXECUTE: WorkerMode = "execute"
 
 
 class LaunchResult(BaseModel):

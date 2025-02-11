@@ -91,9 +91,7 @@ def create_app(**kwargs) -> Litestar:
     logger.info(
         f"startup with providers: {len(state.providers)}, "
         f"connection: {len(state.connection)}, "
-        f"log level: {state.screen_level}, "
-        f"executor: {'ray' if state.ray else 'thread'}, "
-        f"async: {'False' if state.sync else 'True'}")
+        f"log level: {state.screen_level}")
     if state.cache_reset:
         if Path(state.cache_data).exists():
             logger.warning(f"reset cache {state.cache_data}")

@@ -154,7 +154,6 @@ class Loader:
             "exec_data": None,
             "timeout": None,
             "retry": None,
-            "ray": None,
             # runtime:
             "registers": {},
             "flows": {},
@@ -165,7 +164,6 @@ class Loader:
             "heartbeat": None,
             "status": None,
             "log_queue": [],
-            "sync": None,
             "env_home": None,
             "venv_dir": None
         })

@@ -3,7 +3,6 @@
 - registry: false
 - feed: false
 - screen_level: info
-- ray: false
 - flows:
   - entry: tests.example4.crew:flow
     name: Job Posting
@@ -12,7 +11,7 @@
     tags:
     - test
     - crew
-  - entry: tests.test_worker:stream_flow
+  - entry: tests.test_remote:stream_flow
     url: /flow
     name: Quick Test
     description: A simple test flow
@@ -20,7 +19,7 @@
     tags:
     - test
     - function
-  - entry: tests.test_worker:flow3
+  - entry: tests.test_remote:flow3
     url: /flow1
     name: Runner
     description: Define a custom runtime
@@ -28,14 +27,14 @@
     tags:
     - test
     - function
-  - entry: :tests.simple:flow
+  - entry: tests.simple:flow
     name: Simple Crew Flow
     url: /crew
     author: donald.duck@web.de
     tags:
     - test
     - crewai
-  - entry: :tests.test_worker:flow5
+  - entry: tests.test_remote:flow5
     url: /flow5
     name: Inactivity Timer
     description: Be inactive for 5 seconds, and then for 3 seconds
@@ -43,14 +42,14 @@
     tags:
     - test
     - function
-  - entry: ec1:env1.test:func1
+  - entry: ec1:env1.test:flow
     name: ec1-func1
     url: /func1
     author: mickey.mouse@web.de
     tags:
     - test
     - infrastructure
-  - entry: ec2:env2.test:func2
+  - entry: ec2:env2.test:flow
     name: ec2-func2
     url: /func2
     author: mickey.mouse@web.de
