@@ -22,6 +22,7 @@ dependencies = [
     "aiofiles"
 ]
 
+
 [project.optional-dependencies]
 tests = [
     "pytest",
@@ -29,3 +30,6 @@ tests = [
     "isort",
     "autopep8"
 ]
+
+[tool.setuptools.package-data]
+"kodo.service" = ["static/**/*", "templates/*"]
