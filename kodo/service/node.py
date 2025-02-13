@@ -93,7 +93,7 @@ def create_app(**kwargs) -> Litestar:
             flow_rh,
             exec_rh,
             create_static_files_router(
-                path="/static", directories=[Path(__file__).parent / "static"])
+                path="/", directories=[Path(__file__).parent / "static"])
         ],
         on_startup=[NodeControl.startup],
         on_shutdown=[NodeControl.shutdown],
