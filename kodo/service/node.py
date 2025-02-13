@@ -1,25 +1,25 @@
+import traceback
 import urllib
 from pathlib import Path
-import traceback
 
 import uvicorn
-from litestar import Litestar, Response, Request
+from litestar import Litestar, Request, Response
 from litestar.config.cors import CORSConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
+from litestar.exceptions import HTTPException
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
-from litestar.exceptions import HTTPException
 
 import kodo.log
 import kodo.service.signal
 import kodo.worker.loader
+from kodo import helper
 from kodo.log import logger
-from kodo.service.route.main import NodeControl
-from kodo.service.route.flow import FlowControl
 from kodo.service.route.execute import ExecutionControl
-
+from kodo.service.route.flow import FlowControl
+from kodo.service.route.main import NodeControl
 
 DEFAULT_LOADER = "kodo.worker.loader:default_loader"
 
@@ -31,14 +31,15 @@ def app_exception_handler(request: Request, exc: Exception) -> Response:
     else:
         status_code = 500
         detail = repr(exc)
-    logger.error(f"server error: {status_code} {detail}")
+    tb = traceback.format_exc()
+    logger.error(f"{status_code} {detail}: {request.url.path}\n{tb}")
     return Response(
         content={
             "error": "server error",
             "path": request.url.path,
             "detail": detail,
             "status_code": status_code,
-            "stacktrace": traceback.format_exc(),
+            "stacktrace": tb,
         },
         status_code=500,
     )
@@ -54,7 +55,7 @@ def create_app(**kwargs) -> Litestar:
             FlowControl,
             ExecutionControl,
             create_static_files_router(
-                path="/static",
+                path="/",
                 directories=[Path(__file__).parent / "static"])
         ],
         on_startup=[NodeControl.startup],
@@ -91,8 +92,7 @@ def create_app(**kwargs) -> Litestar:
     logger.info(
         f"startup with providers: {len(state.providers)}, "
         f"connection: {len(state.connection)}, "
-        f"log level: {state.screen_level}, "
-        f"executor: {'ray' if state.ray else 'thread'}")
+        f"log level: {state.screen_level}")
     if state.cache_reset:
         if Path(state.cache_data).exists():
             logger.warning(f"reset cache {state.cache_data}")
@@ -133,15 +133,20 @@ def run_service(**kwargs) -> None:
         raise ValueError("Cannot feed (True) as a node")
     if loader.option.CONNECT is None:
         loader.option.CONNECT = []
+    if not helper.check_ray(loader.option.RAY_SERVER):
+        raise ValueError(
+            f"ray connection failed: {loader.option.RAY_DASHBOARD}")
     uvicorn.run(
         "kodo.service.node:create_app",
         host=str(server.hostname),
         port=int(server.port),
         reload=bool(loader.option.RELOAD),
         factory=True,
+        workers=1,
         log_config={"version": 1,  "loggers": {}}
     )
 
 
 if __name__ == "__main__":
     run_service(reload=True)
+

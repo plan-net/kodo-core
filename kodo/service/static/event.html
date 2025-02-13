@@ -1,0 +1,44 @@
+<html>
+    <head>
+        <style>
+            body {
+                margin: 8px;
+            }
+            .console {
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="console">hello world</textarea>
+    </body>
+<script>
+    var urlParams = new URLSearchParams(window.location.search);
+    var fid = urlParams.get('fid');
+
+    // Ensure source is only created once
+    function put(ev) {
+        var div = document.querySelector(".console");
+        div.innerHTML += ev;
+        div.scrollTop = div.scrollHeight;
+    }
+
+    if (!window.source) {
+        put("STARTING");
+        window.source = new EventSource("/flow/" + fid + "/event");
+
+        window.source.addEventListener("data", function(event) {
+            put("<p>Data: " + event.data + "</p>")
+        }, false);
+
+        window.source.addEventListener("result", function(event) {
+            put("<p>Result: " + event.data + "</p>")
+        }, false);
+        window.source.addEventListener("eof", function(event) {
+            put("<p>END: " + event.data + "</p>");
+            window.source.close();
+        }, false);
+
+    }
+</script>
+</html>

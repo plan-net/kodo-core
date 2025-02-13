@@ -1,17 +1,17 @@
-import shutil
 from pathlib import Path
 from typing import List, Literal, Optional, Union
-
-import psutil
+import shutil
 from bson import ObjectId
-from litestar import MediaType, Request, Response, delete, get
+from litestar import MediaType, Request, Response, get, post
 from litestar.datastructures import State
-from litestar.response import ServerSentEvent, Template
+from litestar.exceptions import NotFoundException
+from litestar.response import Template, ServerSentEvent
 
 import kodo.service.controller
 from kodo.log import logger
-from kodo.worker.result import FINAL_STATE, ExecutionResult
-
+from kodo.remote.launcher import FINAL_STATE, KILLED_STATE
+from kodo.remote.result import ExecutionResult
+from kodo import helper
 
 class ExecutionControl(kodo.service.controller.Controller):
     path = "/flow"
@@ -44,114 +44,148 @@ class ExecutionControl(kodo.service.controller.Controller):
                 execs.pop(0)
                 continue
             _, fid = execs.pop(0)
-            result = ExecutionResult(state, fid)
-            await result.read()
-            if result.status() in FINAL_STATE:
-                alive = None
+            t0 = helper.now()
+            result = ExecutionResult(exec_path.joinpath(fid))
+            await result.aread()
+            alive: Union[bool, None] = None
+            if result.status in FINAL_STATE:
+                alive = False
             else:
-                alive = result.check_alive()
+                alive = await result.check_alive()
+            if result.launch.fid is None:
+                logger.error(f"flow {fid} has no fid")
+                continue
             if result.flow is None:
                 logger.error(f"flow {fid} has no flow")
-                shutil.rmtree(result.event_file.parent)
                 continue
             page.append({
-                "fid": result.fid,
-                "status": result.status(),
-                "start_time": result.start_time(),
-                "end_time": result.end_time(),
-                "total": result.total_time(),
-                "flow": result.flow.model_dump(),
-                "inactive": result.inactive_time(),
+                "fid": result.launch.fid,
+                "status": result.status,
+                "launch": result.launch,
+                "version": result.version,
+                "has_final": result.has_final,
+                "timing": result.timing,
+                "duration": result.duration,
+                "progress": result.progress,
+                "flow": result.flow,
                 "alive": alive
             })
-        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
-        preferred_type = request.accept.best_match(
-            provided_types, default=MediaType.JSON)
+            size = result.event_log.stat().st_size
+            logger.debug(f"flow {fid} ({size}) loaded in {helper.now() - t0}")
         ret = {
-            "result": page,
+            "items": page,
             "total": total,
             "p": p,
             "pp": pp,
         }
-        if preferred_type == MediaType.JSON:
-            return Response(content=ret)
-        return Template(template_name="jobs.html", context=ret)
+        if helper.wants_html(request):
+            return Template(template_name="jobs.html", context=ret)
+        return Response(content=ret)
 
     @get("/{fid:str}")
     async def detail(
             self,
             state: State,
-            fid: str,
-            format: Optional[Literal["json", "html"]] = None) -> Union[
-                Response, Template]:
-        fid = ObjectId(fid)
-        result = ExecutionResult(state, fid)
-        await result.read()
-        assert result.flow
+            request: Request,
+            fid: str) -> Union[Response]:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            await result.aread()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        if helper.wants_html(request):
+            return Template(template_name="status.html", 
+                            context=result.data)
+        return Response(content=result.data)
 
-        def file_size(file: Path) -> Union[int, None]:
-            return file.stat().st_size if file.exists() else None
+    @get("/{fid:str}/final")
+    async def final_result(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            await result.aread()
+            final = await result.final_result()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        if helper.wants_html(request):
+            pass
+        return Response(content=final)
 
-        return Response(content={
-            "status": result.status(),
-            "total": result.total_time(),
-            "bootup": result.tearup(),
-            "runtime": result.runtime(),
-            "teardown": result.teardown(),
-            "version": result.version,
-            "entry_point": result.entry_point,
-            "flow": result.flow.model_dump(),
-            "fid": result.fid,
-            "executor": result.executor,
-            "ray": result.ray,
-            "stdout": file_size(result.stdout_file),
-            "stderr": file_size(result.stderr_file),
-            "inactive": result.inactive_time(),
-            "pid": result.pid,
-            "ppid": result.ppid
-        })
+    @get("/{fid:str}/result")
+    async def result(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            await result.aread()
+            ret = await result.result()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        return Response(content=ret)
 
-    @get("/{fid:str}/stdout")
-    async def stream_stdout(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        return ServerSentEvent(await result.stream_stdout())
-    
-    @get("/{fid:str}/stderr")
-    async def stream_stderr(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        return ServerSentEvent(await result.stream_stderr())
+    @get("/{fid:str}/progress")
+    async def progress(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> Response:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        try:
+            ret = await result.get_progress()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+        preferred_type = request.accept.best_match(
+            provided_types, default=MediaType.JSON)
+        return Response(content=ret)
+
+    @post("/{fid:str}/kill")
+    async def kill(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> bool:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        logger.warning(f"POST /flows/{fid}/kill")
+        try:
+            await result.kill()
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        return True
+
+    @post("/{fid:str}/remove")
+    async def remove(
+            self,
+            state: State,
+            request: Request,
+            fid: str) -> bool:
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        logger.warning(f"POST /flows/{fid}/remove")
+        try:
+            await result.aread()
+            if result.status not in FINAL_STATE:
+                raise Exception(f"flow {fid} is still running")
+            shutil.rmtree(str(result.event_log.parent))
+        except FileNotFoundError:
+            raise NotFoundException(f"flow {fid} not found")
+        return True
 
     @get("/{fid:str}/event")
     async def stream_event(self, state: State, fid: str) -> ServerSentEvent:
-        result = ExecutionResult(state, fid)
-        await result.read()
-        return ServerSentEvent(await result.stream_event())
+        logger.info(f"STREAM /flows/{fid}/event")
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        return ServerSentEvent(result.stream())
 
-    @delete("/{fid:str}/kill")
-    async def kill_flow(self, state: State, fid: str) -> None:
-        result = ExecutionResult(state, fid)
-        await result.read()
-        if result.pid:
-            logger.warning(f"request to kill flow {fid} with pid {result.pid}")
-            try:
-                proc = psutil.Process(result.pid)
-                if proc.is_running():
-                    for child in proc.children(recursive=True):
-                        logger.warning(f"kill child {child.pid}")
-                        child.terminate()
-                    proc.terminate()
-                    logger.warning(f"killed flow {fid} with pid {result.pid}")
-            except:
-                logger.error(f"failed to kill flow {fid}")
-        else:
-            logger.error(f"request to kill flow {fid} with no pid")
-        result.kill()
-
-
-    @delete("/{fid:str}/remove")
-    async def remove_flow(self, state: State, fid: str) -> None:
-        result = ExecutionResult(state, fid)
-        await result.read()
-        if result.status() not in FINAL_STATE:
-            raise Exception(f"flow {fid} is still running")
-        shutil.rmtree(result.event_file.parent)
+    @get("/{fid:str}/progress/stream")
+    async def stream_progress(self, state: State, fid: str) -> ServerSentEvent:
+        logger.info(f"STREAM /flows/{fid}/progress/stream")
+        result = ExecutionResult(Path(state.exec_data).joinpath(fid))
+        return ServerSentEvent(result.stream("progress", "status"))

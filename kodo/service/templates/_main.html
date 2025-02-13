@@ -1,55 +1,61 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=2.0">
-  <link rel="stylesheet" href="/static/simplecss/simple.css">
-  <link rel="stylesheet" href="/static/kodosumi.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/pico/pico.fluid.classless.slate.min.css">
   <title>kodosumi</title>
-  <script src="/static/htmx-2.0.4/htmx.min.js"></script>
-  {% block head %}{% endblock %}
+  <script src="/htmx-2.0.4/htmx.min.js"></script>
+  <link rel="stylesheet" href="/kodo.css">
+  {% block head %}
+  {% endblock %}
 </head>
-
-<body>
+<body class="container-fluid">
   <header>
-    {% block header %}{% endblock %}
-    <div id="mode" type="button" data-theme-toggle aria-label="Change theme">
-      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24"
-        height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        class="lucide lucide-sun">
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2" />
-        <path d="M12 20v2" />
-        <path d="m4.93 4.93 1.41 1.41" />
-        <path d="m17.66 17.66 1.41 1.41" />
-        <path d="M2 12h2" />
-        <path d="M20 12h2" />
-        <path d="m6.34 17.66-1.41 1.41" />
-        <path d="m19.07 4.93-1.41 1.41" />
-      </svg>
-      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24"
-        height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        class="lucide lucide-moon">
-        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-      </svg>
-    </div>
+    <nav>
+      <ul>
+        <li><strong>kodosumi - ADMIN</strong></li>
+      </ul>
+      <ul>
+        <li><a href="/flows">Flows</a></li>
+        <li><a href="/flow">Jobs</a></li>
+        <li><a href="/home">Home</a></li>
+        <li>
+          <div id="mode" data-theme-toggle aria-label="Change theme">
+            <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24"
+              height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-sun">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="m17.66 17.66 1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="m6.34 17.66-1.41 1.41" />
+              <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+            <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24"
+              height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-moon">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+          </div>
+        </li>
+      </ul>
+    </nav>
+    <hr/>
   </header>
   <main>
     {% block content %}{% endblock %}
-    <!-- {% if result is not none %}
-    <details>
-      <summary>DEBUG</summary>
-      <pre class="logging">{{result.stderr}}</pre>
-    </details>
-    {% endif %} -->
   </main>
   <footer>
     {% block footer %}{% endblock %}
   </footer>
-  <script src="/static/kodosumi.js"></script>
+</div>
 </body>
-
+<script src="/kodo.js"></script>
 </html>

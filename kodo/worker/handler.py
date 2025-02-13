@@ -39,7 +39,6 @@ class FlowHandler:
                 bound_args.arguments['method'] = method
             bound_args.apply_defaults()
             return func(*bound_args.args, **bound_args.kwargs)
-        # self._kwprops = {**self._kwargs, **kwargs}
         self._register['enter'] = wrapper
         return wrapper
 

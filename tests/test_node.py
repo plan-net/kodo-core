@@ -49,9 +49,12 @@ class Service:
         
     def start(self):
         self.process.start()
+        url = self.url
+        if url.endswith("/"):
+            url = url[:-1]
         while True:
             try:
-                resp = httpx.get(self.url, timeout=600)
+                resp = httpx.get(url + "/home", timeout=600)
                 if resp.status_code == 200:
                     break
             except:
@@ -61,8 +64,11 @@ class Service:
 
     def wait(self):
         while True:
+            url = self.url
+            if url.endswith("/"):
+                url = url[:-1]
             try:
-                resp = httpx.get(self.url, timeout=600)
+                resp = httpx.get(url + "/home", timeout=600)
                 if resp.status_code == 200:
                     if resp.json()["idle"]:
                         break
@@ -359,7 +365,7 @@ async def test_query2():
 async def test_node_status():
     node = Service(url="http://localhost:3370", registry=False, feed=False)
     node.start()
-    resp = httpx.get(f"{node.url}/")
+    resp = httpx.get(f"{node.url}/home")
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] == node.url
@@ -369,7 +375,7 @@ async def test_node_status():
 async def test_registry_status():
     registry = Service(url="http://localhost:3370", registry=True, feed=True)
     registry.start()
-    resp = httpx.get(f"{registry.url}/")
+    resp = httpx.get(f"{registry.url}/home")
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] == registry.url
