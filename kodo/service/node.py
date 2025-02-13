@@ -81,7 +81,7 @@ def create_app(**kwargs) -> Litestar:
         route_handlers=[NodeControl],
     )
     flow_rh = Router(
-        path="/flows",
+        path="/",
         middleware=flows_middleware,
         route_handlers=[FlowControl],
     )

@@ -1,6 +1,6 @@
 import time
 import urllib.parse
-
+import asyncio
 import httpx
 import pandas as pd
 import pytest
@@ -165,7 +165,7 @@ async def test_query():
     )
     node.start()
     node.wait()
-    resp = httpx.get(f"{node.url}/flows", timeout=None)
+    resp = httpx.get(f"{node.url}/flows?pp=10", timeout=None)
     assert len(resp.json()["items"]) == 10
     assert resp.json()["total"] == 50 
 
@@ -242,7 +242,7 @@ async def test_query2():
         node.wait()
     registry.wait()
     
-    resp = httpx.get(f"{registry.url}/flows", timeout=None)
+    resp = httpx.get(f"{registry.url}/flows?pp=10", timeout=None)
     assert len(resp.json()["items"]) == 10
     assert resp.json()["total"] == 50 
 
@@ -624,7 +624,7 @@ async def test_registry1_off():
     for service in peers:
         service.stop()
 
-@pytest.mark.skip("not working")
+#@pytest.mark.skip("not working")
 async def test_mass_disconnect():
     registry1 = Service(
         url="http://localhost:3370", 
@@ -665,17 +665,16 @@ async def test_mass_disconnect():
         loader="tests.test_node:loader1"
     )
     node1.start()
-
-    time.sleep(20)
+    node1.wait()
+    # await asyncio.sleep(5)
     resp_before = httpx.get(f"{registry1.url}/connect")
     assert resp_before.status_code == 200
     assert len(resp_before.json()["nodes"]) > 0
 
     resp = httpx.delete(f"{node1.url}/connect")
     assert resp.status_code == 204
-    
-    time.sleep(20)
-
+    node1.wait()
+    # await asyncio.sleep(20)
     resp_after = httpx.get(f"{registry1.url}/connect")
     assert resp_after.status_code == 200
     assert len(resp_after.json()["nodes"]) == 0

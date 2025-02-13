@@ -1,39 +1,23 @@
-import sys
 import asyncio
 import datetime
 import os
-from pathlib import Path
-import psutil
-import httpx
-import pytest
+import sys
 import time
+from pathlib import Path
+
+import httpx
+import psutil
+import pytest
 import ray
 from litestar.datastructures import State
 
-from kodo.common import Launch, publish
 from kodo import helper
+from kodo.common import Launch, publish
 from kodo.datatypes import Flow, Option
 from kodo.remote.enter import FlowCallable
-from kodo.remote.launcher import RAY_ENV, RAY_NAMESPACE, launch, parse_factory
+from kodo.remote.launcher import launch, parse_factory
 from kodo.remote.result import ExecutionResult
 from tests.test_node import Service
-
-
-@pytest.fixture()
-def use_ray():
-    os.system("ray start --head")
-    ray.init(
-        address="localhost:6379", 
-        ignore_reinit_error=False,
-        namespace=RAY_NAMESPACE,
-        configure_logging=True,
-        logging_level="DEBUG",
-        log_to_driver=True,
-        runtime_env=RAY_ENV
-    )
-    yield
-    ray.shutdown()
-    os.system("ray stop")
 
 
 def test_parse_factory():

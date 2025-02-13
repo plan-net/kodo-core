@@ -1,19 +1,19 @@
-import pytest
 import json
-import tempfile
-import jwt
 import os
+import tempfile
 import threading
-import requests
 
 import httpx
+import jwt
 import pandas as pd
-
-from kodo.service.security import JWTAuthMiddleware, JWKS, validate_jwt
-from kodo.service.node import run_service
+import pytest
+import requests
 from pytest_httpserver import HTTPServer, httpserver
 
+from kodo.service.node import run_service
+from kodo.service.security import JWKS, JWTAuthMiddleware, validate_jwt
 from tests.shared import *
+
 
 def _rsa_key_pair():
     with open("tests/assets/private.key.json", "rb") as f:
@@ -22,15 +22,18 @@ def _rsa_key_pair():
         jwks_cert = json.load(f)
     return private_key, jwks_cert
 
+
 @pytest.fixture(scope="module")
 def rsa_key_pair():
     return _rsa_key_pair()
+
 
 @pytest.fixture(scope="module")
 def jwks():
     with open("tests/assets/jwks_certs.json") as f:
         return json.load(f)
-    
+
+
 def create_auth_header(roles=["registry"]):
     KID = "12345"
     private_key, _ = _rsa_key_pair()
@@ -91,7 +94,8 @@ async def test_authenticated_query():
     node.start()
     node.wait()
     auth_header = create_auth_header()
-    resp = httpx.get(f"{node.url}/flows", timeout=None, headers=auth_header)
+    resp = httpx.get(f"{node.url}/flows?pp=10", 
+                     timeout=None, headers=auth_header)
     assert len(resp.json()["items"]) == 10
     assert resp.json()["total"] == 50
     assert resp.status_code == 200
@@ -99,6 +103,7 @@ async def test_authenticated_query():
     p0 = httpx.get(f"{node.url}/flows?pp=15&p=0", headers=auth_header).json()
     df0 = pd.DataFrame(p0["items"])
     assert df0.shape[0] == 15
+
 
 async def test_wrong_audience():
     node = Service(

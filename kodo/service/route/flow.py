@@ -52,6 +52,7 @@ class FlowControl(kodo.service.controller.Controller):
              "- `p` (int, default=0): Page number for pagination.\n"
              "- `format` (json or html, optional): Response format (JSON or HTML)."
          ),
+         status_code=HTTP_200_OK,
          tags=["Monitoring", "Flows"])
     async def flows(
             self,
