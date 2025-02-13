@@ -32,7 +32,12 @@ def app_exception_handler(request: Request, exc: Exception) -> Response:
     else:
         status_code = 500
         detail = repr(exc)
-    logger.error(f"server error: {status_code} {detail}")
+
+    if status_code >= 500:
+        logger.error(f"server error: {status_code} {detail}")
+    else:
+        logger.warning(f"client error: {status_code} {detail}")
+
     return Response(
         content={
             "error": "server error",
