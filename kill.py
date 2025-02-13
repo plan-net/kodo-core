@@ -15,18 +15,18 @@ procs = []
 process_list = subprocess.check_output(['ps', 'aux']).decode('utf-8').split('\n')
 for process in process_list:
     process = process.lower()
-    if 'python' in process and 'multiproc' in process:
+    if 'python' in process and ('multiproc' in process or 'debugpy' in process):
         procs.append(process)
 
 if procs:
     print("""
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-KILLS ALL PYTHON MULTIPROCESSING PROCESSES
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+KILLS ALL PYTHON DEBUGPY & MULTIPROCESSING PROCESSES
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 HANDLE WITH CARE AND USE ONLY IF YOU KNOW WHAT YOU ARE DOING
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     """)
-    print(f"Found {len(procs)} python multiprocessing processes")
+    print(f"Found {len(procs)} python processes")
     print()
     if sys.argv[-1] != "force":
         input("continue? (press enter)")

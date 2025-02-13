@@ -16,6 +16,5 @@ def publish(
         description: str,
         author: Optional[str] = None,
         tags: Optional[List[str]] = None) -> FlowHandler:
-    return FlowHandler(
-        flow, url=url, name=name, description=description,
-        author=author, tags=tags)
+    return FlowHandler(flow, url=url, name=name, description=description, 
+                       author=author, tags=tags)

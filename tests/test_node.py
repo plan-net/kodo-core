@@ -283,7 +283,7 @@ async def test_query2():
 async def test_node_status():
     node = Service(url="http://localhost:3370", registry=False, feed=False)
     node.start()
-    resp = httpx.get(f"{node.url}/")
+    resp = httpx.get(f"{node.url}/home")
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] == node.url
@@ -293,7 +293,7 @@ async def test_node_status():
 async def test_registry_status():
     registry = Service(url="http://localhost:3370", registry=True, feed=True)
     registry.start()
-    resp = httpx.get(f"{registry.url}/")
+    resp = httpx.get(f"{registry.url}/home")
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] == registry.url

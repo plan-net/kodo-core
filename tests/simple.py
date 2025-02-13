@@ -5,26 +5,9 @@ import datetime
 import httpx
 
 from kodo.common import publish, Launch
-from tests.test_crew import ollama_online
 
-llm = None
-if ollama_online():
-    try:
-        resp = httpx.get("http://127.0.0.1:11434/api/tags", timeout=3)
-        mods = resp.json()["models"]
-        phi = [m["model"] for m in mods if 'phi' in m["name"]]
-        if phi:
-            llm = ChatOpenAI(api_key="sk-svcacct-",
-                model=f"ollama/{phi[0]}", 
-                base_url="http://localhost:11434")
-        elif mods:
-            llm = ChatOpenAI(api_key="sk-svcacct-",
-                model=f"ollama/{mods[0]["name"]}", 
-                base_url="http://localhost:11434")
-    except:
-        pass
-if llm is None:
-    llm = ChatOpenAI()
+
+llm = ChatOpenAI()
     
 # Tools
 @tool("Mock Tool")
@@ -94,7 +77,8 @@ flow = publish(
 
 @flow.enter
 def landing_page(form):
-    if topic:=form.get("topic") and form.get("terms"):
+    if form.get("topic") and form.get("terms"):
+        topic = form.get("topic")
         if topic.strip():
             return Launch(topic=topic.strip())
     error = ""

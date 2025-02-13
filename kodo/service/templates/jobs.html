@@ -1,83 +1,89 @@
 {% extends "_main.html" %}
 
 {% block head %}
-<style>
-    body {
-        grid-template-columns: 1fr 95% 1fr;
+<script>
+    function page(p) {
+        var inputP = document.querySelector('input[name="p"]');
+        inputP.value = p;
+        inputP.form.submit();
     }
-    .spin {
-        animation: spin 2s linear infinite;
-    }
-    @keyframes spin {
-        from {transform: rotate(0deg);}
-        to {transform: rotate(360deg);}
-    }
-  </style>
-  <meta http-equiv="refresh" content="1">
+</script>
 {% endblock %}
 
 {% block header %}
-    <h1>Jobs List</h1>
 {% endblock %}
 
 {% block content %}
-
-    <table width="100%">
-        <tbody>
-            <tr>
-                <th>&nbsp;</th>
-                <th>FID</th>
-                <th>Flow</th>
-                <th>Status</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Total Time</th>
-                <th>Inactive</th>
-                <th>&nbsp;</th>
-            </tr>
-            {% for item in result %}
-            <tr>
-                <td>
-                    <a title="state" target="_blank" href="/flow/{{item["fid"]}}/"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/></svg></a>
-                    <a title="stdout" target="_blank" href="/flow/{{item["fid"]}}/stdout"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg></a>
-                    <a title="stderr" target="_blank" href="/flow/{{item["fid"]}}/stderr"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-x"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg></a>
-                    <a title="event stream" target="_blank" href="/flow/{{item["fid"]}}/event"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-percent"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></a>
-                </td>
-                <td><code>{{item["fid"]}}</code></td>
-                <td>{{ item["flow"].name }}</td>
-                <td>
-                    {% if item["status"] != "finished" %}
-                    <mark>{{ item["status"] }}</mark>
-                    {% else %}
-                    {{ item["status"] }}
-                    {% endif %}
-                </td>
-                <td>{{ item["start_time"].strftime("%Y-%m-%d %H:%M:%S") }}</td>
-                <td>{{ item["end_time"].strftime("%Y-%m-%d %H:%M:%S") if item["end_time"] else "-" }}</td>
-                <td>{{ item["total"] | int }}</td>
-                <td>{{ item["inactive"] or "-" }}</td>
-                <td>
-                    {% if item["alive"] %}
-                    <a href="#" hx-delete="/flow/{{ item["fid"]}}/kill"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-ccw spin"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></a>
-                    {% else %}
-                    <a href="#" hx-delete="/flow/{{ item["fid"]}}/remove"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-
-        </tbody>
+<form role="search" method="post" action="/flow">
+    <input type="hidden" name="p" value="0"/>
+    <input type="hidden" name="pp" value="{{pp}}"/>
+</form>
+<div id="page">
+    <table>
+        <tr>
+            <th>Execution ID</th>
+            <th colspan="2">Status</th>
+            <th>Name</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Runtime</th>
+        </tr>
+        {% for item in items %}
+        <tr>
+            <td><a href="/flow/{{ item["launch"].fid }}">{{ item["launch"].fid }}</a></td>
+            <td><div id="status-{{ item["launch"].fid }}">{{ item["status"] }}</div></td>
+            <td><progress id="progress-{{ item["launch"].fid }}" style="width: 100px;" value="{{ item["progress"] }}" max="1"></progress></td>
+            <td>{{ item["flow"].name }}</td>
+            <td>{{ item["timing"]["tearup"] }}</td>
+            <td>{{ item["timing"]["teardown"] }}</td>
+            <td>{{ item["duration"]["total"] }}</td>
+        </tr>
+        {% endfor %}
     </table>
-    <p>
-        <a href="?p=0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-first"><path d="m17 18-6-6 6-6"/><path d="M7 6v12"/></svg></a>
-
-        <a href="?p={{ 0 if p == 0 else p - 1 }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg></a>
-        
-        <a href="?p={{ (total + pp - 1) // pp - 1 if p == (total + pp - 1) // pp - 1 else p + 1 | int }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg></a>
-
-        <a href="?p={{ (total + pp - 1) // pp - 1 | int}}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-last"><path d="m7 18 6-6-6-6"/><path d="M17 6v12"/></svg></a>
-    </p>
+</div>
+<p style="text-align: center;">
+    <a href="/flow?pp={{pp}}&p=0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-first"><path d="m17 18-6-6 6-6"/><path d="M7 6v12"/></svg></a>
+    <a href="/flow?pp={{pp}}&p={{ 0 if p == 0 else p - 1 }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg></a>
+    - {{p + 1}} -
+    <a href="/flow?pp={{pp}}&p={{ (total + pp - 1) // pp - 1 if p == (total + pp - 1) // pp - 1 else p + 1 | int }}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg></a>
+    <a href="/flow?pp={{pp}}&p={{ (total + pp - 1) // pp - 1 | int}}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-last"><path d="m7 18 6-6-6-6"/><path d="M17 6v12"/></svg></a>
+</p>
 {% endblock %}
 
 {% block footer %}
+<script>
+    function splitOnce(str) {
+        const index = str.indexOf(' ');
+        if (index === -1) {
+            return [str];
+        }
+        return [str.substring(0, index), str.substring(index + 1)];
+    }
+    let evSrc = [];
+    var progress;
+    var status;
+    {% for item in items %}
+        progress = document.querySelector("#progress-{{ item["launch"].fid }}");
+        status = document.querySelector("#status-{{ item["launch"].fid }}");
+        {% if item["status"] in ("pending", "booting", "starting", "running") %}
+        console.log("I am running: {{item["launch"].fid}}");
+        evSrc["{{ item["launch"].fid }}"] = new EventSource("/flow/{{ item["launch"].fid }}/progress/stream");
+        evSrc["{{ item["launch"].fid }}"].onmessage = function(event) {
+            const [timestamp, jsonData] = splitOnce(event.data);
+            const data = JSON.parse(jsonData);
+            if (data["progress"]) {
+                progress.value = data["progress"]["value"];
+            }
+            if (data["status"]) {
+                status.value = data["status"];
+            }
+        };
+        evSrc["{{ item["launch"].fid }}"].addEventListener("eof", function(event) {
+            evSrc["{{ item["launch"].fid }}"].close();
+        });
+        {% else %}
+            progress.value = 1;
+        {% endif %}
+{% endfor %}
+</script>
 {% endblock %}

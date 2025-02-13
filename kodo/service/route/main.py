@@ -1,9 +1,11 @@
 import os
 import signal
-from typing import Union
+from typing import Union, Optional, Literal
 
 import httpx
-from litestar import Litestar, Request, delete, get, post
+import ray
+from litestar import Litestar, Request, delete, get, post, MediaType
+from litestar.response import Template, Response
 from litestar.datastructures import State
 from litestar.exceptions import HTTPException
 from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
@@ -12,6 +14,7 @@ from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
                                    HTTP_500_INTERNAL_SERVER_ERROR)
 
 import kodo.helper as helper
+from kodo.helper import wants_html
 import kodo.service.controller
 import kodo.service.signal
 import kodo.worker.loader
@@ -25,7 +28,6 @@ class NodeControl(kodo.service.controller.Controller):
     @staticmethod
     async def startup(app: Litestar) -> None:
         app.state.started_at = helper.now()
-        await kodo.worker.loader.Loader.load_flows(app.state)
         for url in app.state.connection:
             kodo.service.signal.emit(app, "connect", url, app.state)
         message: str
@@ -36,23 +38,25 @@ class NodeControl(kodo.service.controller.Controller):
             message = f"registry (feed is {app.state.feed})"
         else:
             message = f"node"
-        # logger.info(
-        #     f"{message} startup complete with {len(app.state.flows)}"
-        #     f"(pid {os.getpid()}, ppid {os.getppid()})")
+        logger.info(
+            f"{message} startup complete with {len(app.state.flows)} flows "
+            f"(pid {os.getpid()}, ppid {os.getppid()})")
 
-        original_handler = signal.getsignal(signal.SIGINT)
-
+        original_handler = {
+            signal.SIGINT: signal.getsignal(signal.SIGINT),
+            signal.SIGTERM: signal.getsignal(signal.SIGTERM)}
+        
         def signal_handler(signal, frame):
-            # print(f' -- interrupt triggers shutdown')
             app.state.exit = True
-            if original_handler:
-                original_handler(signal, frame)
-
+            if original_handler.get(signal):
+                original_handler[signal](signal, frame)
+        
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
     @staticmethod
     def shutdown(app: Litestar) -> None:
+        ray.shutdown()
         logger.info(f"shutdown now")
 
     @delete("/kill")
@@ -60,7 +64,7 @@ class NodeControl(kodo.service.controller.Controller):
         logger.debug(f"received SIGHUP, killing me")
         os.kill(os.getpid(), signal.SIGTERM)
 
-    @get("/",
+    @get("/home",
          summary="Node Status Overview",
          description=("Returns general state information about the Kodosumi "
                       "registry or node, including startup time and status."),
@@ -69,7 +73,14 @@ class NodeControl(kodo.service.controller.Controller):
     async def home(
             self,
             request: Request,
-            state: State) -> DefaultResponse:
+            state: State) -> Union[Template, Response, DefaultResponse]:
+        if wants_html(request):
+            return Template(
+                template_name="home.html",
+                context={"organization": state.organization,
+                         "version": kodo.__version__},
+                status_code=HTTP_200_OK,
+                media_type=MediaType.HTML)
         return kodo.service.controller.default_response(state)
 
     @get("/map",

@@ -1,0 +1,43 @@
+#sun-icon {
+  display: inline;
+}
+
+#moon-icon {
+  display: none;
+}
+
+[data-theme="light"] #sun-icon {
+  display: none;
+}
+
+[data-theme="light"] #moon-icon {
+  display: inline;
+}
+
+#mode {
+  cursor: pointer;
+}
+
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 columns */
+  gap: 16px; /* Adjust the gap between items as needed */
+  row-gap: 0px; /* Decrease the gap between rows */
+}
+
+.page-grid-element {
+  height: 24vh;
+}
+
+.page-grid-element > header {
+  font-weight: bold
+}
+
+.page-grid-element > p {
+  overflow-y: auto;
+  height: 8vh;
+}
+
+.page-grid-element > footer {
+  font-size: 0.8rem;
+}

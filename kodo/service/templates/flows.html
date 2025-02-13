@@ -1,0 +1,76 @@
+{% extends "_main.html" %}
+
+{% block head %}
+<script>
+    function page(p) {
+        var inputP = document.querySelector('input[name="p"]');
+        inputP.value = p;
+        inputP.form.submit();
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        var inputQ = document.querySelector('input[name="q"]');
+        inputQ.focus();
+        var value = inputQ.value;
+        inputQ.value = '';
+        inputQ.value = value;
+    });
+</script>
+<style>
+    .fade-in {
+        opacity: 1;
+        animation-name: fadeInOpacity;
+        animation-iteration-count: 1;
+        animation-timing-function: ease-in;
+        animation-duration: 0.4s;
+    }
+    @keyframes fadeInOpacity {
+        0% {
+            opacity: 0;
+        }
+        100% {
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+{% endblock %}
+
+{% block content %}
+<form role="search" method="post" action="/flows">
+    <input type="search" name="q" value="{{q}}" placeholder="Search..." onsearch="this.form.submit();"/>
+    <input type="hidden" name="p" value="0"/>
+    <input type="hidden" name="pp" value="{{pp}}"/>
+    <input type="submit" value="Search"/>
+</form>
+<div id="page">
+    <div id="flows" class="page-grid">
+        {% for item in items %}
+        <article class="page-grid-element fade-in">
+            <header><a href="{{ item["url"] }}">{{ item["name"] }}</a></header>
+            <p>{{ item["description"] | safe }}</p>
+            <footer>
+                {% if item["tags"] %}
+                    {% for tag in item["tags"] %}
+                    <kbd>{{ tag }}</kbd>&nbsp;
+                    {% endfor %}
+                {% else %}
+                    {{ item["organization"] | safe }}
+                {% endif %}
+            </footer>
+        </article>
+        {% endfor %}
+    </div>
+</div>
+<p style="text-align: center;">
+    <a href="javascript:page(0)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-first"><path d="m17 18-6-6 6-6"/><path d="M7 6v12"/></svg></a>
+    <a href="javascript:page({{ 0 if p == 0 else p - 1 }})"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg></a>
+    - {{p + 1}} -
+    <a href="javascript:page({{ (filtered + pp - 1) // pp - 1 if p == (filtered + pp - 1) // pp - 1 else p + 1 | int }})"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg></a>
+    <a href="javascript:page({{ (filtered + pp - 1) // pp - 1 | int}})"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-last"><path d="m7 18 6-6-6-6"/><path d="M17 6v12"/></svg></a>
+</p>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}
