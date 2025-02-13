@@ -3,6 +3,7 @@ from litestar.datastructures import State
 from litestar.events import listener
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 
+from kodo.adapter import now
 import kodo.helper as helper
 import kodo.service.controller
 from kodo.datatypes import Connect, Provider
@@ -49,10 +50,10 @@ async def connect(url, state) -> None:
         data=Connect(**default.model_dump(), nodes=nodes).model_dump_json(),
         retry=state.retry,
         timeout=state.timeout)
-    state.connection[url] = helper.now()
+    state.connection[url] = now()
     if state.feed:
         feedback = Connect(**resp)
-        modified = helper.now()
+        modified = now()
         if feedback.url in state.providers:
             created = state.providers[feedback.url].created
         else:
@@ -69,7 +70,7 @@ async def connect(url, state) -> None:
         logger.info(f"feedback from {feedback.url} with {helper.stat(nodes)}")
     release(state)
     if resp:
-        state.connection[url] = helper.now()
+        state.connection[url] = now()
         logger.debug(f"{url}/connect complete")
     else:
         logger.error(f"{url}/connect failed")

@@ -6,10 +6,10 @@ from typing import Any, Callable, Optional
 import crewai
 import ray.actor
 
-import kodo.error
-from kodo import helper
 from kodo.common import Launch
-from kodo.remote.launcher import RAY_ENV, RAY_NAMESPACE, RUNNING_STATE
+from kodo.adapter import now, RAY_NAMESPACE, RAY_ENV
+import kodo.error
+from kodo.remote.launcher import RUNNING_STATE
 
 
 def flow_factory(module_name: str, flow: str) -> Callable:
@@ -129,7 +129,7 @@ class FlowCrewAI(FlowCallable):
         task = args[0]
         if task.name not in self.memo["task"]:
             self.memo["task"][task.name] = []
-        self.memo["task"][task.name].append(helper.now())
+        self.memo["task"][task.name].append(now())
         done = sum([len(lst) for t, lst in self.memo["task"].items()])
         total = sum([len(lst) or 1 for t, lst in self.memo["task"].items()])
         self.set_progress(done, total)

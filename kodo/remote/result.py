@@ -10,8 +10,8 @@ import pydantic
 from litestar.response import ServerSentEventMessage
 from litestar.types import SSEData
 
-from kodo import helper
-from kodo.datatypes import DynamicModel, Flow, LaunchResult
+from kodo.adapter import now, Flow
+from kodo.datatypes import DynamicModel, LaunchResult
 from kodo.log import logger
 from kodo.remote.launcher import (BREAK_STATE, DIED_STATE, EVENT_LOG,
                                   FINAL_STATE, INITIAL_STATE, KILLED_STATE,
@@ -130,7 +130,7 @@ class ExecutionResult:
             if t1:
                 delta = t1 - t0
             else:
-                delta = helper.now() - t0
+                delta = now() - t0
             return delta.total_seconds()
         else: 
             return None
@@ -212,8 +212,8 @@ class ExecutionResult:
                         break
                 line = line.rstrip()
                 if not line:
-                    if not interval or helper.now() > interval:
-                        interval = helper.now() + datetime.timedelta(seconds=5)
+                    if not interval or now() > interval:
+                        interval = now() + datetime.timedelta(seconds=5)
                         alive = await self.check_alive()
                         if alive is not None and not alive:
                             done = True

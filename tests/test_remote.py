@@ -3,18 +3,20 @@ import datetime
 import sys
 import time
 from pathlib import Path
-
+import pytest
 import httpx
 import psutil
 from litestar.datastructures import State
 
 from kodo import helper
 from kodo.common import Launch, publish
+from kodo.adapter import now
 from kodo.datatypes import Flow, Option
 from kodo.remote.enter import FlowCallable
 from kodo.remote.launcher import launch, parse_factory
 from kodo.remote.result import ExecutionResult
 from tests.test_node import Service
+from tests.shared import *
 
 
 def test_parse_factory():
@@ -28,6 +30,7 @@ def test_parse_factory():
     assert flow == "flow"
 
 
+@pytest.mark.skip("requires dedicated environment")
 async def test_launch():
     option = Option()
     state = State(dict(
@@ -107,7 +110,7 @@ async def test_launch2():
 
 
 async def has_final(fid, timeout=30):
-    t0 = helper.now()
+    t0 = now()
     while True:
         resp = httpx.get(
             f"http://localhost:3371/flow/{fid}", timeout=None, 
@@ -118,7 +121,7 @@ async def has_final(fid, timeout=30):
             break
         print("w", end="")
         await asyncio.sleep(1)
-        if helper.now() - t0 > datetime.timedelta(seconds=timeout):
+        if now() - t0 > datetime.timedelta(seconds=timeout):
             print("X")
             raise RuntimeError()
 
@@ -269,7 +272,7 @@ async def test_launch_request10():
                         headers={"Accept": "application/json"})
         url = resp.headers["location"]
         print(f"{i}, err: {err}", end=": ")
-        t0 = helper.now()
+        t0 = now()
         while True:
             resp = httpx.get(
                 f"http://localhost:3371{url}", timeout=None, 
@@ -280,7 +283,7 @@ async def test_launch_request10():
                 break
             print("w", end="")
             await asyncio.sleep(1)
-            if helper.now() - t0 > datetime.timedelta(seconds=30):
+            if now() - t0 > datetime.timedelta(seconds=30):
                 print("X"*10)
                 err += 1
                 break

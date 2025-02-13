@@ -9,11 +9,6 @@ from litestar.exceptions import HTTPException
 from litestar.status_codes import HTTP_400_BAD_REQUEST
 
 
-def now():
-    # use this function for now to align on UTC
-    return datetime.datetime.now(datetime.timezone.utc)
-
-
 def check_ray(server):
     host, port = server.split(":")
     port = int(port)
@@ -64,9 +59,6 @@ class Backoff:
 def stat(nodes):
     return f"nodes: {len(nodes)}, flows: {sum([len(n.flows) for n in nodes])}"
 
-
-def is_debug():
-    return sys.gettrace() is not None or "debugpy" in sys.modules
 
 
 def wants_html(request: Request) -> bool:

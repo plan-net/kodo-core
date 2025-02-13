@@ -8,8 +8,9 @@ import aiofiles
 import yaml
 from litestar.datastructures import State
 
-from kodo.datatypes import (CommandOption, EnvironmentOption, Flow,
-                            InternalOption, ProviderDump)
+from kodo.common import Flow
+from kodo.datatypes import (CommandOption, EnvironmentOption, InternalOption, 
+                            ProviderDump)
 from kodo.error import SetupError
 from kodo.helper import parse_factory
 from kodo.log import logger

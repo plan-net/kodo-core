@@ -13,6 +13,7 @@ from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
 
+import kodo.core
 import kodo.log
 import kodo.service.signal
 import kodo.worker.loader
@@ -109,7 +110,7 @@ def create_app(**kwargs) -> Litestar:
         openapi_config=OpenAPIConfig(
             title="Kodosumi API",
             description="API documentation for the Kodosumi mesh.",
-            version=kodo.__version__,
+            version=kodo.core.__version__,
             render_plugins=[SwaggerRenderPlugin()],
             path="/docs",
         ),

@@ -8,8 +8,9 @@ from litestar.datastructures import State
 from litestar.exceptions import NotFoundException
 from litestar.response import ServerSentEvent, Template
 
-import kodo.service.controller
+from kodo.adapter import now
 from kodo import helper
+import kodo.service.controller
 from kodo.log import logger
 from kodo.remote.launcher import FINAL_STATE
 from kodo.remote.result import ExecutionResult
@@ -45,7 +46,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 execs.pop(0)
                 continue
             _, fid = execs.pop(0)
-            t0 = helper.now()
+            t0 = now()
             result = ExecutionResult(exec_path.joinpath(fid))
             await result.aread()
             alive: Union[bool, None] = None
@@ -72,7 +73,7 @@ class ExecutionControl(kodo.service.controller.Controller):
                 "alive": alive
             })
             size = result.event_log.stat().st_size
-            logger.debug(f"flow {fid} ({size}) loaded in {helper.now() - t0}")
+            logger.debug(f"flow {fid} ({size}) loaded in {now() - t0}")
         ret = {
             "items": page,
             "total": total,

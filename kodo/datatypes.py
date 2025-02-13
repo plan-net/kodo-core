@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, RootModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from kodo.common import Flow
 
 class Option(BaseSettings):
 
@@ -92,15 +93,6 @@ class DefaultResponse(BaseModel):
     idle: bool
     now: datetime.datetime
     message: List[str]
-
-
-class Flow(BaseModel):
-    url: str
-    name: str
-    description: Optional[str] = None
-    author: Optional[str] = None
-    tags: Optional[List[str]] = []
-    entry: Optional[str] = None
 
 
 class NodeInfo(BaseModel):

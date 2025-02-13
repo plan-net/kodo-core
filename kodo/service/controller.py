@@ -3,7 +3,7 @@ from typing import List
 from litestar import Controller
 from litestar.datastructures import State
 
-import kodo.helper as helper
+from kodo.adapter import now
 from kodo.datatypes import DefaultResponse, Node
 from kodo.log import logger
 
@@ -30,7 +30,7 @@ def default_response(
         "connection": state.connection,
         "started_at": state.started_at,
         "idle": state.event == 0,
-        "now": helper.now(),
+        "now": now(),
         "message": message
     })
 

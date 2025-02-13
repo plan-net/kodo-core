@@ -12,19 +12,17 @@ import ray
 from bson.objectid import ObjectId
 from litestar.datastructures import State
 
-import kodo
-from kodo import helper
-from kodo.common import Launch
-from kodo.datatypes import DynamicModel, Flow, LaunchResult
+import kodo.core
+from kodo.adapter import now, Flow, Launch
+from kodo.datatypes import DynamicModel, LaunchResult
 from kodo.log import LOG_FORMAT, logger
+
 
 WINDOWS = ("Scripts", "python.exe")
 LINUX = ("bin", "python")
 
 VENV_MODULE = "kodo.remote.enter"
 EXEC_MODULE = "kodo.remote.executor"
-RAY_NAMESPACE = "kodo"
-RAY_ENV = {"env_vars": {"RAY_DEBUG": "1"}} if helper.is_debug() else {}
 EVENT_LOG = "event.log"
 STDOUT_FILE = "stdout.log"
 STDERR_FILE = "stderr.log"
@@ -137,7 +135,7 @@ def ev_format(value: Union[pydantic.BaseModel, Dict[str, Any]]) -> str:
         ret = DynamicModel(value).model_dump_json()
     else:
         ret = f"invalid type {type(value)}: {value}"
-    return f"{helper.now().isoformat()} {ret}\n"
+    return f"{now().isoformat()} {ret}\n"
 
 
 async def ev_write(
@@ -158,7 +156,10 @@ async def _create_event_data(
     event_path.mkdir(exist_ok=True, parents=False)
     event_log = event_path.joinpath(EVENT_LOG)
     fh = await aiofiles.open(event_log, "w")
-    await ev_write(fh, {"version": kodo.__version__})
+    await ev_write(fh, {"version": {
+        "core": kodo.core.__version__,
+        "common": kodo.common.__version__
+    }})
     await ev_write(fh, {"flow": flow})
     await ev_write(fh, {"launch": result})
     await ev_write(fh, {"environment": {
@@ -173,16 +174,16 @@ async def _create_event_data(
 
 
 async def launch(state: State, flow: Flow, inputs: dict) -> LaunchResult:
-    t0 = helper.now()
+    t0 = now()
     ray.init(
         address=state.ray_server, 
         ignore_reinit_error=True,
-        namespace=RAY_NAMESPACE,
+        namespace=kodo.adapter.RAY_NAMESPACE,
         configure_logging=True,
         logging_level=logging.ERROR,
         logging_format=LOG_FORMAT,
         log_to_driver=True,
-        runtime_env=RAY_ENV
+        runtime_env=kodo.adapter.RAY_ENV
     )
     fid = str(ObjectId())
     logger.info(f"booting {flow.url}, fid: {fid}")
@@ -224,9 +225,9 @@ async def launch(state: State, flow: Flow, inputs: dict) -> LaunchResult:
             stdout=DEVNULL, stderr=DEVNULL, start_new_session=True)
         logger.info(
             f"launched {flow.url}, fid: {fid}, pid: {proc.pid}"
-            f"in {helper.now() - t0}")
+            f"in {now() - t0}")
     else:
         logger.info(
-            f"entered {flow.url} with fid={fid} after {helper.now() - t0}")
+            f"entered {flow.url} with fid={fid} after {now() - t0}")
     ray.shutdown()
     return result

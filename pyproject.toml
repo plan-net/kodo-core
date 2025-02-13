@@ -1,12 +1,18 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42", "wheel", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kodo"]
+namespaces = true
 
 [project]
-name = "kodo"
+name = "kodo-core"
 version = "0.0.0"
-description = "kodosumi is a framework to execute and orchestrate intelligent agents safe and at scale."
+description = "kodosumi framework to execute and orchestrate agentic services safe and at scale"
 readme = "README.md"
-license = {text = "MPL-2.0"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 dependencies = [
     "requests",
@@ -17,11 +23,10 @@ dependencies = [
     "pydantic-settings",
     "litestar[standard]",
     "bson",
-    "ray[default]",
+    "ray[default]==2.41.*",
     "psutil",
     "aiofiles"
 ]
-
 
 [project.optional-dependencies]
 tests = [

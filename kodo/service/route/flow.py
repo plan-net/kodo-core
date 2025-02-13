@@ -7,10 +7,11 @@ from litestar.exceptions import HTTPException, NotFoundException
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
+from kodo.adapter import Flow
 import kodo.helper as helper
 import kodo.remote.launcher
 import kodo.service.controller
-from kodo.datatypes import Flow, LaunchResult, NodeInfo
+from kodo.datatypes import LaunchResult, NodeInfo
 from kodo.log import logger
 from kodo.service.flow import build_df, filter_df, sort_df
 

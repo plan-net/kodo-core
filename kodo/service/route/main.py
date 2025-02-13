@@ -13,13 +13,14 @@ from litestar.status_codes import (HTTP_200_OK, HTTP_201_CREATED,
                                    HTTP_404_NOT_FOUND,
                                    HTTP_500_INTERNAL_SERVER_ERROR)
 
+from kodo.adapter import now
+import kodo.core
 import kodo.helper as helper
 import kodo.service.controller
 import kodo.service.signal
 import kodo.worker.loader
 from kodo.datatypes import (Connect, DefaultResponse, Disconnect, Provider,
                             ProviderMap)
-from kodo.helper import wants_html
 from kodo.log import logger
 
 
@@ -27,7 +28,7 @@ class NodeControl(kodo.service.controller.Controller):
 
     @staticmethod
     async def startup(app: Litestar) -> None:
-        app.state.started_at = helper.now()
+        app.state.started_at = now()
         for url in app.state.connection:
             kodo.service.signal.emit(app, "connect", url, app.state)
         message: str
@@ -55,7 +56,7 @@ class NodeControl(kodo.service.controller.Controller):
         signal.signal(signal.SIGTERM, signal_handler)
 
     @staticmethod
-    def shutdown(app: Litestar) -> None:
+    def shutdown() -> None:
         ray.shutdown()
         logger.info(f"shutdown now")
 
@@ -74,11 +75,11 @@ class NodeControl(kodo.service.controller.Controller):
             self,
             request: Request,
             state: State) -> Union[Template, Response, DefaultResponse]:
-        if wants_html(request):
+        if helper.wants_html(request):
             return Template(
                 template_name="home.html",
                 context={"organization": state.organization,
-                         "version": kodo.__version__},
+                         "version": kodo.core.__version__},
                 status_code=HTTP_200_OK,
                 media_type=MediaType.HTML)
         return kodo.service.controller.default_response(state)
@@ -137,7 +138,7 @@ class NodeControl(kodo.service.controller.Controller):
                 status_code=HTTP_400_BAD_REQUEST,
                 detail="Connection attempt failed: Node is not a registry."
             )
-        modified = helper.now()
+        modified = now()
 
         if data.url in state.providers:
             created = state.providers[data.url].created
@@ -294,7 +295,7 @@ class NodeControl(kodo.service.controller.Controller):
                 detail="Current node is not a registry. Cannot process updates."
             )
 
-        modified = helper.now()
+        modified = now()
         # Check if the provider exists in the registry
         if data.url not in state.providers:
             raise HTTPException(

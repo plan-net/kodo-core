@@ -8,7 +8,7 @@ import httpx
 import pytest
 import ray
 
-from kodo.remote.launcher import RAY_ENV, RAY_NAMESPACE
+from kodo.adapter import RAY_ENV, RAY_NAMESPACE
 from kodo.service.node import run_service
 
 

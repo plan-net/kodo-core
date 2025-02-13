@@ -5,10 +5,10 @@ from subprocess import PIPE, Popen
 import ray
 from ray.util.queue import Queue
 
-from kodo import helper
+from kodo.adapter import RAY_NAMESPACE, RAY_ENV
+
 from kodo.remote.launcher import (BOOTING_STATE, BREAK_STATE, COMPLETED_STATE,
-                                  ERROR_STATE, RAY_ENV, RAY_NAMESPACE,
-                                  RETURNING_STATE, STARTING_STATE,
+                                  ERROR_STATE, RETURNING_STATE, STARTING_STATE,
                                   STOPPING_STATE, VENV_MODULE)
 from kodo.remote.result import ExecutionResult
 
@@ -135,7 +135,7 @@ def main(debug: bool, server: str, exec_path: str) -> None:
 
 
 if __name__ == "__main__":
-    if helper.is_debug():
+    if sys.gettrace() is not None or "debugpy" in sys.modules:
         main(True, *sys.argv[1:3])
         sys.exit(0)
     else:
