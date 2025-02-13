@@ -49,8 +49,10 @@ BREAK_STATE = "break"
 COMPLETED_STATE = "completed"  
 # set by detached process on the node service on failure
 ERROR_STATE = "error"  
-
-FINAL_STATE = (ERROR_STATE, COMPLETED_STATE)
+KILLED_STATE = "killed"
+DIED_STATE = "died"
+INITIAL_STATE = (PENDING_STATE, BOOTING_STATE)
+FINAL_STATE = (ERROR_STATE, COMPLETED_STATE, KILLED_STATE, DIED_STATE)
 
 
 def parse_factory(state: State, entry_point: str) -> Tuple[str, str, str, str]:

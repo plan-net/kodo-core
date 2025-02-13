@@ -1,13 +1,20 @@
+import asyncio
 import datetime
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Union
 
 import aiofiles
+import psutil
 import pydantic
+from litestar.response import ServerSentEventMessage
+from litestar.types import SSEData
 
 from kodo import helper
 from kodo.datatypes import DynamicModel, Flow, LaunchResult
-from kodo.remote.launcher import BREAK_STATE, EVENT_LOG, FINAL_STATE, ev_format
+from kodo.log import logger
+from kodo.remote.launcher import (BREAK_STATE, DIED_STATE, EVENT_LOG,
+                                  FINAL_STATE, ev_format, INITIAL_STATE, KILLED_STATE)
 
 
 class ExecutionResult:
@@ -77,9 +84,6 @@ class ExecutionResult:
                     toplevel = keys[0]
                     yield timestamp, keys[0], data.root[toplevel]
         
-    def __getattr__(self, name):
-        return self.data.get(name, None)
-
     async def _areadfile(self):
         first = last = None
         async with aiofiles.open(self.event_log, "r") as fh:
@@ -177,7 +181,7 @@ class ExecutionResult:
         elif action == "progress":
             self.data["progress"] = value.get("value")
 
-    async def progress(self) -> dict[str, Any]:
+    async def get_progress(self) -> dict[str, Any]:
         status = None
         progress = None
         driver = None
@@ -193,3 +197,76 @@ class ExecutionResult:
             "progresss": progress,
             "driver": driver
         }
+
+    async def stream(self, *args) -> AsyncGenerator[SSEData, None]:
+        done = False
+        interval = None
+        status = None
+        async with aiofiles.open(self.event_log, "r") as fh:
+            while True:
+                line = await fh.readline()
+                if not line:
+                    await asyncio.sleep(0.1)
+                    if done:
+                        break
+                line = line.rstrip()
+                if not line:
+                    if not interval or helper.now() > interval:
+                        interval = helper.now() + datetime.timedelta(seconds=5)
+                        alive = await self.check_alive()
+                        if alive is not None and not alive:
+                            done = True
+                    continue
+                timestamp, s_data = line.split(" ", 1)
+                data = DynamicModel.model_validate_json(s_data)
+                keys = list(data.root.keys())
+                if len(keys) == 1:
+                    toplevel = keys[0]
+                    value = data.root[toplevel]
+                    if toplevel == "status":
+                        if value in FINAL_STATE:
+                            done = True
+                        status = value
+                    if args and toplevel not in args:
+                        continue
+                    yield ServerSentEventMessage(data=line)
+        yield ServerSentEventMessage(event="eof", data="Stream closed")
+        return
+
+    async def kill(self) -> bool:
+        ret = await self.get_progress()
+        if ret["driver"]:
+            pid = ret["driver"].get("pid", None)
+            if pid:
+                try:
+                    proc = psutil.Process(pid)
+                    proc.terminate()
+                    self.open_write()
+                    self.write({"status": KILLED_STATE})
+                    self.write({"stdout": "process killed by user"})
+                    self.close_write()
+                    return True
+                except:
+                    pass
+        return False
+    
+    async def check_alive(self) -> Union[bool, None]:
+        logger.info(f"checking {self.event_log}")
+        ret = await self.get_progress()
+        if ret["driver"]:
+            pid = ret["driver"].get("pid", None)
+            if pid:
+                try:
+                    psutil.Process(pid)
+                    return True
+                except:
+                    pass
+        if ret["status"] not in set(FINAL_STATE).union(INITIAL_STATE):
+            self.open_write()
+            self.write({"status": DIED_STATE})
+            self.close_write()
+            return False
+        return None
+    
+    def __getattr__(self, name):
+        return self.data.get(name, None)

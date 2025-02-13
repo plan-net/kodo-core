@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
-from litestar import MediaType, Request, Response, get, post
+from litestar import MediaType, Request, Response, get, post, route
 from litestar.datastructures import State
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import HTTPException, NotFoundException
@@ -16,36 +16,8 @@ from kodo.service.flow import build_df, filter_df, sort_df
 
 
 class FlowControl(kodo.service.controller.Controller):
-    path = "/flows"
 
-    @get("/",
-         summary="Retrieve Active Flows",
-         description=(
-             "Returns all active flows from nodes and providers in the Kodosumi registry. "
-             "Supports filtering, sorting, and pagination.\n\n"
-             "**Query Parameters:**\n"
-             "- `q` (str, optional): Filter flows by a search query.\n"
-             "- `by` (str, optional): Field to sort flows by.\n"
-             "- `pp` (int, default=10): Items per page for pagination.\n"
-             "- `p` (int, default=0): Page number for pagination.\n"
-             "- `format` (json or html, optional): Response format (JSON or HTML)."
-         ),
-         tags=["Monitoring", "Flows"])
-    async def flows(
-            self,
-            state: State,
-            request: Request,
-            q: Optional[str] = None,
-            by: Optional[str] = None,
-            pp: int = 10,
-            p: int = 0,
-            format: Optional[Literal["json", "html"]] = None) -> Union[
-                Response, Template]:
-        """
-        Return all flows from the nodes and providers masquerading the
-        sourcing registry. Returns a pandas DataFrame.
-        """
-        # Validate pagination parameters
+    async def _load_data(self, state, p, pp, q, by):
         if pp <= 0 or p < 0:
             logger.warning(f"Invalid pagination params: pp={pp}, p={p}")
             raise HTTPException(
@@ -66,19 +38,54 @@ class FlowControl(kodo.service.controller.Controller):
         logger.debug(
             f"return /flows with page {p}/{int(total/pp)} "
             f"and {df.shape[0]}/{total} records")
+        return df, total, filtered, sort_by, query
 
-        # Handle HTML or JSON response
-        if (("text/html" in request.headers.get("accept", "")
-             and format != "json") | (format == "html")):
+    @route("/flows", http_method=["GET", "POST"],
+         summary="Retrieve Active Flows",
+         description=(
+             "Returns all active flows from nodes and providers in the Kodosumi registry. "
+             "Supports filtering, sorting, and pagination.\n\n"
+             "**Query Parameters:**\n"
+             "- `q` (str, optional): Filter flows by a search query.\n"
+             "- `by` (str, optional): Field to sort flows by.\n"
+             "- `pp` (int, default=10): Items per page for pagination.\n"
+             "- `p` (int, default=0): Page number for pagination.\n"
+             "- `format` (json or html, optional): Response format (JSON or HTML)."
+         ),
+         tags=["Monitoring", "Flows"])
+    async def flows(
+            self,
+            state: State,
+            request: Request,
+            format: Optional[Literal["json", "html"]] = None) -> Union[
+                Response, Template]:
+        if request.method == "POST":
+            form = await request.form()
+            q = form.get("q", None)
+            by = form.get("by", None)
+            pp = int(form.get("pp", 20))
+            p = int(form.get("p", 0))
+        else:
+            q = request.query_params.get("q", None)
+            by = request.query_params.get("by", None)
+            pp = int(request.query_params.get("pp", 20))
+            p = int(request.query_params.get("p", 0))
+        """
+        Return all flows from the nodes and providers masquerading the
+        sourcing registry. Returns a pandas DataFrame.
+        """
+        df, total, filtered, sort_by, query = await self._load_data(
+            state, p, pp, q, by)
+        if request.method == "POST" or helper.wants_html(request):
             return Template(
-                template_name="explore.html",
+                template_name="flows.html",
                 context={
-                    "result": df.to_dict("records"),
+                    "items": df.to_dict("records"),
                     "total": total,
                     "filtered": filtered,
                     "p": p,
                     "pp": pp,
-                    "q": q},
+                    "q": q or ""},
                 status_code=HTTP_200_OK)
         return Response(content={
             "total": total,
@@ -89,6 +96,7 @@ class FlowControl(kodo.service.controller.Controller):
             "by": ", ".join(sort_by),
             "q": query
         })
+
 
     async def _handle(
             self, 
@@ -107,7 +115,7 @@ class FlowControl(kodo.service.controller.Controller):
         result = await kodo.remote.launcher.launch(state, flow, data)
         return flow, result
 
-    @get("/{path:path}")
+    @get("/flows/{path:path}")
     async def enter_flow(
             self,
             state: State,
@@ -115,9 +123,6 @@ class FlowControl(kodo.service.controller.Controller):
             path: str,
             format: Optional[str]="html") -> Union[Template, Dict, Redirect]:
         logger.info(f"GET /flows{path}")
-        provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
-        preferred_type = request.accept.best_match(
-            provided_types, default=MediaType.JSON)
         flow, result = await self._handle(state, request, path)
         node = NodeInfo(url=state.url, organization=state.organization)
         ret = {
@@ -125,16 +130,16 @@ class FlowControl(kodo.service.controller.Controller):
             "flow": flow,
             "node": node
         }
-        if preferred_type == MediaType.JSON or format == "json":
-            return ret
-        if result.is_launch:
-            return Redirect(f"/flow/{result.fid}")
-        return Template(
-            template_name="enter.html", 
-            context=ret, 
-            media_type=MediaType.HTML)
+        if helper.wants_html(request):
+            if result.is_launch:
+                return Redirect(f"/flow/{result.fid}")
+            return Template(
+                template_name="enter.html", 
+                context={**ret, "width": "narrow"}, 
+                media_type=MediaType.HTML)
+        return ret
 
-    @post("/{path:path}")
+    @post("/flows/{path:path}")
     async def launch_flow(
             self,
             state: State,
@@ -156,7 +161,7 @@ class FlowControl(kodo.service.controller.Controller):
             media_type=MediaType.HTML)
 
     
-    @get("/counts",
+    @get("/flows/counts",
          summary="Retrieve Node and Flow Counts",
          description="Provides total counts of nodes and flows grouped by organization and tags in the Kodosumi registry.",
          tags=["Monitoring", "Statistics"])

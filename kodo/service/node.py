@@ -15,6 +15,7 @@ from litestar.template.config import TemplateConfig
 import kodo.log
 import kodo.service.signal
 import kodo.worker.loader
+from kodo import helper
 from kodo.log import logger
 from kodo.service.route.execute import ExecutionControl
 from kodo.service.route.flow import FlowControl
@@ -132,6 +133,9 @@ def run_service(**kwargs) -> None:
         raise ValueError("Cannot feed (True) as a node")
     if loader.option.CONNECT is None:
         loader.option.CONNECT = []
+    if not helper.check_ray(loader.option.RAY_SERVER):
+        raise ValueError(
+            f"ray connection failed: {loader.option.RAY_DASHBOARD}")
     uvicorn.run(
         "kodo.service.node:create_app",
         host=str(server.hostname),

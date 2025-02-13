@@ -1,23 +1,22 @@
 {% extends "_main.html" %}
-
-{% block header %}
-    <h1>
-        {{flow.name}}
-    </h1>
-    <p>
-        {{flow.description}}
-    </p>
+{% block head %}
 {% endblock %}
 
 {% block content %}
+<div style="width: 50%; margin-left: 25%;">
+    <h1>{{ flow.name }}</h1>
     <form method="POST" enctype="multipart/form-data">
         {{result.payload | safe}}
     </form>
+</div>
 {% endblock %}
 
 {% block footer %}
+<div style="width: 50%; margin-left: 25%;"
+    <hr/>
     <p>
         {{flow.author}}<br/>
         {{node.organization}}
     </p>
+</div>
 {% endblock %}

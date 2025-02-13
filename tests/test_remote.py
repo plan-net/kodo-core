@@ -81,8 +81,13 @@ def execute3(inputs, flow: FlowCallable):
         print(f"debug: {i}")
         time.sleep(0.005)
         if runtime:
-            if (datetime.datetime.now() - t0).total_seconds() > int(runtime):
+            delta = (datetime.datetime.now() - t0).total_seconds()
+            if delta > int(runtime):
+                flow.set_progress(1, 1)
                 break
+            flow.set_progress(delta, runtime)
+        else:
+            break
     flow.final({"message": f"Hallo Welt: final i == {i}"})
     return "OK"
 
@@ -241,7 +246,7 @@ async def test_kill(use_ray):
     result = ExecutionResult(f"./data/exec/{fid}")
     n = 0
     while n < 3:
-        pro = await result.progress()
+        pro = await result.get_progress()
         collect.append(pro)
         if pro.get("driver"):
             pid = pro["driver"].get("pid", None)
@@ -255,7 +260,7 @@ async def test_kill(use_ray):
         await asyncio.sleep(0.5)
     resp = httpx.post(f"http://localhost:3371/flow/{fid}/kill", timeout=None)
     assert resp.status_code == 201
-    pro = await result.progress()
+    pro = await result.get_progress()
     pid = pro["driver"]["pid"]
     while True:
         try:
@@ -299,5 +304,7 @@ async def test_launch_request10(use_ray):
                 err += 1
                 break
     node.stop()
+    assert err == 0
+
 
 

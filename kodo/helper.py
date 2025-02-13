@@ -1,13 +1,26 @@
+import socket
 import asyncio
 import datetime
 import sys
 import time
-from typing import Callable
+from typing import Callable, List
+
+from litestar import MediaType, Request
+from litestar.exceptions import HTTPException
+from litestar.status_codes import HTTP_400_BAD_REQUEST
 
 
 def now():
     # use this function for now to align on UTC
     return datetime.datetime.now(datetime.timezone.utc)
+
+
+def check_ray(server):
+    host, port = server.split(":")
+    port = int(port)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(5)
+        return sock.connect_ex((host, port)) == 0
 
 
 def parse_factory(entry_point: str) -> Callable:
@@ -48,13 +61,27 @@ class Backoff:
         await asyncio.sleep(self.sleep)
         self.sleep = self.max if self.sleep > self.max else self.sleep * 2
 
-    def wait_b(self) -> None:
-        time.sleep(self.sleep)
-        self.sleep = self.max if self.sleep > self.max else self.sleep * 2
-
 
 def stat(nodes):
     return f"nodes: {len(nodes)}, flows: {sum([len(n.flows) for n in nodes])}"
 
+
 def is_debug():
     return sys.gettrace() is not None or "debugpy" in sys.modules
+
+
+def wants_html(request: Request) -> bool:
+    wanted_type = request.query_params.get("format", None)
+    if wanted_type:
+        if wanted_type == "json":
+            return False
+        elif wanted_type == "html":
+            return True
+        else:
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail="Invalid format parameter, not json/html.")
+    provided_types: List[str] = [MediaType.JSON, MediaType.HTML]
+    preferred_type = request.accept.best_match(
+        provided_types, default=MediaType.JSON) or MediaType.JSON
+    return preferred_type == MediaType.HTML

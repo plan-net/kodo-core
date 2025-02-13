@@ -3,65 +3,145 @@
 {% block head %}
 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
 <style>
-    body {
-        grid-template-columns: 1fr 95% 1fr;
+    body > main {
+        margin-top: 0px;
     }
     .grid-container {
-            display: grid;
-            grid-template-columns: 40% 20% 38%;
-            gap: 10px; /* Adjusts the space between grid items */
-        }
+        display: grid;
+        height: 10vh;
+        grid-template-columns: 20% 40% 38%;
+        gap: 10px; /* Adjusts the space between grid items */
+    }
     .grid-item {
         padding: 0px;
         text-align: left;
     }
+    input, textarea {
+        font-family: monospace; 
+        font-size: 0.8rem
+    }
 </style>
-{% endblock %}
-
-{% block header %}
-    <h1>Flow Status <a href="/flow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-no-axes-gantt"><path d="M8 6h10"/><path d="M6 12h9"/><path d="M11 18h7"/></svg></a></h1>
-{% endblock %}
-
-{% block content %}
-<details open hx-get="/flow/{{ fid }}?format=htmx" hx-swap="outerHTML" hx-trigger="load, every 1s" hx-target="#state">
-    <summary>&nbsp;Execution Status</summary>
-    <div id="state"></div>
-</details>
-
-<details open>
-    <summary>&nbsp;Event Stream</summary>
-    <div class="console"></textarea>
-</details>
-
-{% endblock %}
-{% block footer %}
-
 <script>
-    function scroll(div) {
+    function splitOnce(str) {
+        const index = str.indexOf(' ');
+        if (index === -1) {
+            return [str];
+        }
+        return [str.substring(0, index), str.substring(index + 1)];
+    }
+    function scroll() {
         var now = Date.now();
         window.scrollTimeout = null; 
-        div.scrollTop = div.scrollHeight;
+        const stdout = document.querySelector("#stdout");
+        const result = document.querySelector("#result");
+        stdout.scrollTop = stdout.scrollHeight;
+        result.scrollTop = result.scrollHeight;
     }
     function throttledScroll(div) {
         if (!window.scrollTimeout) {
             window.scrollTimeout = setTimeout(function() {
-                scroll(div);
+                scroll();
             }, 250);
         }
     }
-    if (!window.source) {
-        var fid = "{{ fid }}";
-        window.source = new EventSource("/flow/" + fid + "/event/html");
-        window.source.addEventListener("html", function(event) {
-            var div = document.querySelector(".console");
-            div.insertAdjacentHTML('beforeend', event.data);
-            throttledScroll(div);
-        }, false);
-        window.source.addEventListener("eof", function(event) {
-            window.source.close();
-            document.getElementById("progress").value = 100
-        }, false);
-    }
+    document.addEventListener("DOMContentLoaded", function() {
+        let firstTimestamp = null;
+        let lastTimestamp = null;
+        let last_status = null;
+        const eventSource = new EventSource("/flow/{{ launch['fid'] }}/event");
+        const progress = document.querySelector("progress");
+        const status = document.querySelector("#status");
+        const stdout = document.querySelector("#stdout");
+        const result = document.querySelector("#result");
+        const endtime = document.querySelector("#end");
+        const runtime = document.querySelector("#runtime");
+        const kill = document.querySelector("#kill");
+        const remove = document.querySelector("#remove");
+        eventSource.onmessage = function(event) {
+            const [timestamp, jsonData] = splitOnce(event.data);
+            lastTimestamp = timestamp;
+            if (firstTimestamp === null) {
+                firstTimestamp = timestamp;
+            }
+            const data = JSON.parse(jsonData);
+            if (data["progress"]) {
+                progress.value = data["progress"]["value"] * 100;
+            }
+            if (data["status"]) {
+                status.value = data["status"];
+                last_status = data["status"];
+            }
+            if (data["stdout"]) {
+                console.log(data);
+                stdout.value += data["stdout"] + "\n";
+                throttledScroll();
+            }
+            if (data["result"]) {
+                result.value += JSON.stringify(data["result"]) + "\n";
+                throttledScroll();
+            }
+            if (data["final"]) {
+                result.value = JSON.stringify(data["final"]) + "\n";
+                throttledScroll();
+            }
+            const runtime = document.querySelector("#runtime");
+            if (!window.runtimeInterval) {
+                window.runtimeInterval = setInterval(function() {
+                    now = new Date();
+                    runtime.value = ((now - new Date(firstTimestamp)) / 1000).toFixed(2) + " seconds";
+                }, 400);
+            }
+            const formattedTimestamp = new Date(timestamp).toISOString().slice(0, 19).replace('T', ' ');
+            endtime.value = formattedTimestamp;
+        };
+        eventSource.addEventListener("eof", function(event) {
+            eventSource.close();
+            if (window.runtimeInterval) {
+                clearInterval(window.runtimeInterval);
+                window.runtimeInterval = null;
+            }
+            runtime.value = ((new Date(lastTimestamp) - new Date(firstTimestamp)) / 1000).toFixed(2) + " seconds";
+            if (last_status != "killed") {
+                progress.value = 100;
+            }
+            kill.style.display = "none";
+            remove.style.display = "block";
+        });
+    });
 </script>
+{% endblock %}
 
+{% block content %}
+<div class="grid-container">
+    <div class="grid-item">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" value="{{ flow["name"] }}" readonly>
+        <label for="progress">Progress</label>
+        <progress id="progress" style="height: 14px;" name="progress" value="1" max="100"></progress>
+        <label for="fid">Execution ID</label>
+        <input type="text" id="fid" name="fid" value="{{ launch["fid"] }}" readonly>
+        <label for="inputs">Inputs</label>
+        <textarea name="inputs" id="inputs" readonly>{{launch["payload"]}}</textarea>
+        <label for="status">Status</label>
+        <fieldset role="group">
+            <button hx-confirm="Confirm to kill." hx-swap="none" hx-post="/flow/{{ launch["fid"] }}/kill" id="kill"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-octagon-x"><path d="m15 9-6 6"/><path d="M2.586 16.726A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2h6.624a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586z"/><path d="m9 9 6 6"/></svg></button>
+            <button hx-confirm="Confirm to remove." hx-swap="none" hx-post="/flow/{{ launch["fid"] }}/remove" style="display: none;" id="remove"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
+            <input type="text" id="status" name="status" value="{{ status }}" readonly>
+        </fieldset>
+        <label for="start">Start</label>
+        <input type="text" id="start" name="start" value="{{ timing["tearup"].strftime("%Y-%m-%d %H:%M:%S") }}" readonly>
+        <label for="end">End</label>
+        <input type="text" id="end" name="end" value="{{ timing["teardown"].strftime("%Y-%m-%d %H:%M:%S") }}" readonly>
+        <label for="runtime">Runtime</label>
+        <input type="text" id="runtime" name="runtime" value="" readonly>
+    </div>
+    <div class="grid-item">
+        <label for="result">Result</label>
+        <textarea style="height: 94%;" name="result" id="result" readonly></textarea>
+    </div>
+    <div class="grid-item">
+        <label for="stdout">Standard Output and Error</label>
+        <textarea style="height: 94%;" name="stdout" id="stdout" readonly></textarea>
+    </div>
+</div>
 {% endblock %}

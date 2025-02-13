@@ -55,14 +55,22 @@ class FlowCallable:
         self.run: Callable = lambda: self.flow(
             *bound_args.args, **bound_args.kwargs)
 
+    def set_progress(self, done, total):
+        self.actor.enqueue.remote(progress={
+            "done": done,
+            "pending": total - done,
+            "total": total,
+            "value": done / total
+        })
+
     def finish(self, *args, **kwargs):
         pass
 
     result = _create_action_method("result")
     meta = _create_action_method("meta")
-    progress = _create_action_method("progress")
     final = _create_action_method("final")
     error = _create_action_method("error")
+    #progress = _create_action_method("progress")
 
 class FlowCrewAI(FlowCallable):
 
@@ -124,12 +132,7 @@ class FlowCrewAI(FlowCallable):
         self.memo["task"][task.name].append(helper.now())
         done = sum([len(lst) for t, lst in self.memo["task"].items()])
         total = sum([len(lst) or 1 for t, lst in self.memo["task"].items()])
-        self.progress({
-            "done": done, 
-            "pending": total - done, 
-            "total": total,
-            "value": done / total
-        })
+        self.set_progress(done, total)
 
     def finish(self, *args, **kwargs):
         for result in args:
@@ -207,5 +210,3 @@ if __name__ == "__main__":
         enter_flow(fid)
     else:
         raise ValueError(f"Unknown mode: {mode}")
-
-
