@@ -91,7 +91,7 @@ def use_ray():
     os.system("ray start --head")
     ray.init(
         address="localhost:6379", 
-        ignore_reinit_error=False,
+        ignore_reinit_error=True,
         namespace=RAY_NAMESPACE,
         configure_logging=True,
         logging_level="DEBUG",
