@@ -1,20 +1,21 @@
 - url: http://localhost:3371
-- organization: Plan.Net Journey GmbH & Co. KG
+- organization: Serviceplan
 - registry: false
 - feed: false
 - screen_level: info
 - flows:
   - entry: tests.example4.crew:flow
     name: Job Posting
+    description: A job posting. <b>Warning:</b> This crew starts immediately. No further input requested.
     url: /job-posting
     author: mickey.mouse@web.de
     tags:
     - test
-    - crew
+    - crewai
   - entry: tests.test_remote:stream_flow
     url: /flow
     name: Quick Test
-    description: A simple test flow
+    description: A simple test function. This test creates a lot of output.
     author: mickey.mouse@web.de
     tags:
     - test
@@ -22,13 +23,14 @@
   - entry: tests.test_remote:flow3
     url: /flow1
     name: Runner
-    description: Define a custom runtime
+    description: Define a custom runtime.
     author: dagobert.duck@web.de
     tags:
     - test
     - function
   - entry: tests.simple:flow
-    name: Simple Crew Flow
+    name: Simple Crew Flow.
+    description: This crew creates a hymn for your topic.
     url: /crew
     author: donald.duck@web.de
     tags:
@@ -44,6 +46,7 @@
     - function
   - entry: ec1:env1.test:flow
     name: ec1-func1
+    description: A function running in a dedicated environment.
     url: /func1
     author: mickey.mouse@web.de
     tags:
@@ -51,9 +54,473 @@
     - infrastructure
   - entry: ec2:env2.test:flow
     name: ec2-func2
+    description: A function running in a dedicated environment.
     url: /func2
     author: mickey.mouse@web.de
     tags:
     - test
     - infrastructure
-  
+
+# enumeration
+
+  - entry: tests.test_remote:flow3
+    name: Media Strategist
+    url: /func/test4
+    author: daisy.duck@web.de
+    description: A visionary tool that crafts media strategies with precision and creativity.
+
+  - entry: tests.test_remote:flow3
+    name: Insight Analyst
+    url: /func/test5
+    author: clark.gable@web.de
+    description: An analytical powerhouse that transforms raw into actionable insights.
+
+  - entry: tests.test_remote:flow3
+    name: Content Curator
+    url: /func/test6
+    author: marilyn.monroe@web.de
+    description: A creative engine that curates engaging content for diverse audiences.
+
+  - entry: tests.test_remote:flow3
+    name: Campaign Architect
+    url: /func/test7
+    author: donald.duck@web.de
+    description: Designs innovative campaigns that captivate and convert target audiences.
+
+  - entry: tests.test_remote:flow3
+    name: Engagement Specialist
+    url: /func/test8
+    author: audrey.hepburn@web.de
+    description: Enhances audience engagement through personalized and interactive experiences.
+
+  - entry: tests.test_remote:flow3
+    name: Trend Forecaster
+    url: /func/test9
+    author: james.dean@web.de
+    description: Predicts market trends with uncanny accuracy, guiding strategic decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Storyteller
+    url: /func/test10
+    author: bugs.bunny@web.de
+    description: Crafts compelling brand narratives that resonate with audiences worldwide.
+
+  - entry: tests.test_remote:flow3
+    name: Data Whisperer
+    url: /func/test11
+    author: ingrid.bergman@web.de
+    description: Translates complex into simple, impactful stories for decision-makers.
+
+  - entry: tests.test_remote:flow3
+    name: Innovation Catalyst
+    url: /func/test12
+    author: clint.eastwood@web.de
+    description: Sparks innovation and drives creative solutions to business challenges.
+
+  - entry: tests.test_remote:flow3
+    name: Audience Connector
+    url: /func/test13
+    author: goofy@web.de
+    description: Bridges the gap between brands and audiences, fostering lasting connections.
+
+  - entry: tests.test_remote:flow3
+    name: Market Explorer
+    url: /func/test14
+    author: grace.kelly@web.de
+    description: Ventures into new markets, uncovering opportunities for growth and expansion.
+
+  - entry: tests.test_remote:flow3
+    name: Digital Pioneer
+    url: /func/test15
+    author: john.wayne@web.de
+    description: Leads the charge in digital transformation, pioneering new technologies.
+
+  - entry: tests.test_remote:flow3
+    name: Strategy Guru
+    url: /func/test16
+    author: minnie.mouse@web.de
+    description: Provides strategic guidance that aligns business goals with market realities.
+
+  - entry: tests.test_remote:flow3
+    name: Creative Visionary
+    url: /func/test17
+    author: lauren.bacall@web.de
+    description: Inspires creative teams to push boundaries and achieve artistic excellence.
+
+  - entry: tests.test_remote:flow3
+    name: Social Media Maven
+    url: /func/test18
+    author: kirk.douglas@web.de
+    description: Masters the art of social media, building vibrant online communities.
+
+  - entry: tests.test_remote:flow3
+    name: Customer Advocate
+    url: /func/test19
+    author: pluto@web.de
+    description: Champions customer needs, ensuring exceptional service and satisfaction.
+
+  - entry: tests.test_remote:flow3
+    name: Analytics Wizard
+    url: /func/test20
+    author: sophia.loren@web.de
+    description: Harnesses the power of analytics to drive informed business decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Growth Hacker
+    url: /func/test21
+    author: steve.mcqueen@web.de
+    description: Employs unconventional strategies to achieve rapid and sustainable growth.
+
+  - entry: tests.test_remote:flow3
+    name: Experience Designer
+    url: /func/test22
+    author: daffy.duck@web.de
+    description: Crafts seamless user experiences that delight and engage customers.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Guardian
+    url: /func/test23
+    author: elizabeth.taylor@web.de
+    description: Protects and enhances brand reputation through strategic communication.
+
+  - entry: tests.test_remote:flow3
+    name: Innovation Scout
+    url: /func/test24
+    author: paul.newman@web.de
+    description: Scouts for innovative ideas and technologies to keep the brand ahead.
+
+  - entry: tests.test_remote:flow3
+    name: Content Innovator
+    url: /func/test25
+    author: tweety@web.de
+    description: Innovates content strategies to captivate audiences and drive engagement.
+
+  - entry: tests.test_remote:flow3
+    name: Market Analyst
+    url: /func/test26
+    author: ava.gardner@web.de
+    description: Analyzes market trends to provide actionable insights for business growth.
+
+  - entry: tests.test_remote:flow3
+    name: Digital Strategist
+    url: /func/test27
+    author: burt.lancaster@web.de
+    description: Develops digital strategies that align with business objectives and goals.
+
+  - entry: tests.test_remote:flow3
+    name: Engagement Architect
+    url: /func/test28
+    author: sylvester@web.de
+    description: Designs engagement strategies that foster meaningful customer interactions.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Innovator
+    url: /func/test29
+    author: marlene.dietrich@web.de
+    description: Innovates brand strategies to maintain relevance and drive growth.
+
+  - entry: tests.test_remote:flow3
+    name: Trend Analyst
+    url: /func/test30
+    author: james.stewart@web.de
+    description: Analyzes trends to provide insights that inform strategic decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Creative Strategist
+    url: /func/test31
+    author: porky.pig@web.de
+    description: Develops creative strategies that align with business goals and objectives.
+
+  - entry: tests.test_remote:flow3
+    name: Social Strategist
+    url: /func/test32
+    author: greta.garbo@web.de
+    description: Crafts social media strategies that engage audiences and drive results.
+
+  - entry: tests.test_remote:flow3
+    name: Customer Experience Designer
+    url: /func/test33
+    author: gary.cooper@web.de
+    description: Designs customer experiences that delight and engage at every touchpoint.
+
+  - entry: tests.test_remote:flow3
+    name: Analytics Specialist
+    url: /func/test34
+    author: wile.e.coyote@web.de
+    description: Specializes in analytics to provide insights that drive business decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Growth Strategist
+    url: /func/test35
+    author: joan.crawford@web.de
+    description: Develops growth strategies that drive business expansion and success.
+
+  - entry: tests.test_remote:flow3
+    name: Experience Innovator
+    url: /func/test36
+    author: henry.fonda@web.de
+    description: Innovates experiences that engage and delight customers at every touchpoint.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Strategist
+    url: /func/test37
+    author: taz@web.de
+    description: Develops brand strategies that align with business goals and objectives.
+
+  - entry: tests.test_remote:flow3
+    name: Market Strategist
+    url: /func/test38
+    author: bette.davis@web.de
+    description: Crafts market strategies that drive business growth and success.
+
+  - entry: tests.test_remote:flow3
+    name: Digital Innovator
+    url: /func/test39
+    author: spencer.tracy@web.de
+    description: Innovates digital strategies to keep the brand ahead of the competition.
+
+  - entry: tests.test_remote:flow3
+    name: Engagement Innovator
+    url: /func/test40
+    author: foghorn.leghorn@web.de
+    description: Innovates engagement strategies to foster meaningful customer interactions.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Analyst
+    url: /func/test41
+    author: vivien.leigh@web.de
+    description: Analyzes brand strategies to provide insights that drive business growth.
+
+  - entry: tests.test_remote:flow3
+    name: Trend Strategist
+    url: /func/test42
+    author: humphrey.bogart@web.de
+    description: Develops trend strategies that align with business goals and objectives.
+
+  - entry: tests.test_remote:flow3
+    name: Creative Innovator
+    url: /func/test43
+    author: pepe.le.pew@web.de
+    description: Innovates creative strategies to push boundaries and achieve excellence.
+
+  - entry: tests.test_remote:flow3
+    name: Social Innovator
+    url: /func/test44
+    author: katharine.hepburn@web.de
+    description: Innovates social media strategies to engage audiences and drive results.
+
+  - entry: tests.test_remote:flow3
+    name: Customer Experience Strategist
+    url: /func/test45
+    author: cary.grant@web.de
+    description: Develops customer experience strategies that delight and engage customers.
+
+  - entry: tests.test_remote:flow3
+    name: Analytics Innovator
+    url: /func/test46
+    author: speedy.gonzales@web.de
+    description: Innovates analytics strategies to provide insights that drive decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Growth Innovator
+    url: /func/test47
+    author: rita.hayworth@web.de
+    description: Innovates growth strategies to drive business expansion and success.
+
+  - entry: tests.test_remote:flow3
+    name: Experience Strategist
+    url: /func/test48
+    author: james.cagney@web.de
+    description: Develops experience strategies that engage and delight customers.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Innovator
+    url: /func/test49
+    author: yosemite.sam@web.de
+    description: Innovates brand strategies to maintain relevance and drive growth.
+
+  - entry: tests.test_remote:flow3
+    name: Market Innovator
+    url: /func/test50
+    author: ginger.rogers@web.de
+    description: Innovates market strategies to uncover opportunities for growth.
+
+  - entry: tests.test_remote:flow3
+    name: Digital Analyst
+    url: /func/test51
+    author: clark.gable@web.de
+    description: Analyzes digital strategies to provide insights that drive business growth.
+
+  - entry: tests.test_remote:flow3
+    name: Engagement Analyst
+    url: /func/test52
+    author: porky.pig@web.de
+    description: Analyzes engagement strategies to provide insights that drive interactions.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Specialist
+    url: /func/test53
+    author: joan.crawford@web.de
+    description: Specializes in brand strategies to enhance reputation and drive growth.
+
+  - entry: tests.test_remote:flow3
+    name: Trend Innovator
+    url: /func/test54
+    author: henry.fonda@web.de
+    description: Innovates trend strategies to keep the brand ahead of the competition.
+
+  - entry: tests.test_remote:flow3
+    name: Creative Specialist
+    url: /func/test55
+    author: taz@web.de
+    description: Specializes in creative strategies to push boundaries and achieve excellence.
+
+  - entry: tests.test_remote:flow3
+    name: Social Specialist
+    url: /func/test56
+    author: bette.davis@web.de
+    description: Specializes in social media strategies to engage audiences and drive results.
+
+  - entry: tests.test_remote:flow3
+    name: Customer Experience Innovator
+    url: /func/test57
+    author: spencer.tracy@web.de
+    description: Innovates customer experience strategies to delight and engage customers.
+
+  - entry: tests.test_remote:flow3
+    name: Analytics Specialist
+    url: /func/test58
+    author: foghorn.leghorn@web.de
+    description: Specializes in analytics strategies to provide insights that drive decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Growth Specialist
+    url: /func/test59
+    author: vivien.leigh@web.de
+    description: Specializes in growth strategies to drive business expansion and success.
+
+  - entry: tests.test_remote:flow3
+    name: Experience Specialist
+    url: /func/test60
+    author: humphrey.bogart@web.de
+    description: Specializes in experience strategies to engage and delight customers.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Analyst
+    url: /func/test61
+    author: pepe.le.pew@web.de
+    description: Analyzes brand strategies to provide insights that drive business growth.
+
+  - entry: tests.test_remote:flow3
+    name: Market Specialist
+    url: /func/test62
+    author: katharine.hepburn@web.de
+    description: Specializes in market strategies to uncover opportunities for growth.
+
+  - entry: tests.test_remote:flow3
+    name: Digital Specialist
+    url: /func/test63
+    author: cary.grant@web.de
+    description: Specializes in digital strategies to align with business objectives.
+
+  - entry: tests.test_remote:flow3
+    name: Engagement Specialist
+    url: /func/test64
+    author: speedy.gonzales@web.de
+    description: Specializes in engagement strategies to foster meaningful interactions.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Innovator
+    url: /func/test65
+    author: rita.hayworth@web.de
+    description: Innovates brand strategies to maintain relevance and drive growth.
+
+  - entry: tests.test_remote:flow3
+    name: Trend Specialist
+    url: /func/test66
+    author: james.cagney@web.de
+    description: Specializes in trend strategies to align with business goals.
+
+  - entry: tests.test_remote:flow3
+    name: Creative Analyst
+    url: /func/test67
+    author: yosemite.sam@web.de
+    description: Analyzes creative strategies to provide insights that drive excellence.
+
+  - entry: tests.test_remote:flow3
+    name: Social Analyst
+    url: /func/test68
+    author: ginger.rogers@web.de
+    description: Analyzes social media strategies to engage audiences and drive results.
+
+  - entry: tests.test_remote:flow3
+    name: Customer Experience Specialist
+    url: /func/test69
+    author: clark.gable@web.de
+    description: Specializes in customer experience strategies to delight and engage.
+
+  - entry: tests.test_remote:flow3
+    name: Analytics Analyst
+    url: /func/test70
+    author: porky.pig@web.de
+    description: Analyzes analytics strategies to provide insights that drive decisions.
+
+  - entry: tests.test_remote:flow3
+    name: Growth Analyst
+    url: /func/test71
+    author: joan.crawford@web.de
+    description: Analyzes growth strategies to drive business expansion and success.
+
+  - entry: tests.test_remote:flow3
+    name: Experience Analyst
+    url: /func/test72
+    author: henry.fonda@web.de
+    description: Analyzes experience strategies to engage and delight customers.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Specialist
+    url: /func/test73
+    author: taz@web.de
+    description: Specializes in brand strategies to enhance reputation and drive growth.
+
+  - entry: tests.test_remote:flow3
+    name: Market Analyst
+    url: /func/test74
+    author: bette.davis@web.de
+    description: Analyzes market strategies to uncover opportunities for growth.
+
+  - entry: tests.test_remote:flow3
+    name: Digital Analyst
+    url: /func/test75
+    author: spencer.tracy@web.de
+    description: Analyzes digital strategies to align with business objectives.
+
+  - entry: tests.test_remote:flow3
+    name: Engagement Analyst
+    url: /func/test76
+    author: foghorn.leghorn@web.de
+    description: Analyzes engagement strategies to foster meaningful interactions.
+
+  - entry: tests.test_remote:flow3
+    name: Brand Innovator
+    url: /func/test77
+    author: vivien.leigh@web.de
+    description: Innovates brand strategies to maintain relevance and drive growth.
+
+  - entry: tests.test_remote:flow3
+    name: Trend Analyst
+    url: /func/test78
+    author: humphrey.bogart@web.de
+    description: Analyzes trend strategies to align with business goals.
+
+  - entry: tests.test_remote:flow3
+    name: Creative Specialist
+    url: /func/test79
+    author: pepe.le.pew@web.de
+    description: Specializes in creative strategies to push boundaries and achieve excellence.
+
+  - entry: tests.test_remote:flow3
+    name: Social Specialist
+    url: /func/test80
+    author: katharine.hepburn@web.de
+    description: Specializes in social media strategies to engage audiences and drive results. 
