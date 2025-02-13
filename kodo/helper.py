@@ -1,8 +1,7 @@
-import socket
 import asyncio
 import datetime
+import socket
 import sys
-import time
 from typing import Callable, List
 
 from litestar import MediaType, Request

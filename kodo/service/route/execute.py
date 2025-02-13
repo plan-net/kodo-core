@@ -1,17 +1,19 @@
+import shutil
 from pathlib import Path
 from typing import List, Literal, Optional, Union
-import shutil
+
 from bson import ObjectId
 from litestar import MediaType, Request, Response, get, post
 from litestar.datastructures import State
 from litestar.exceptions import NotFoundException
-from litestar.response import Template, ServerSentEvent
+from litestar.response import ServerSentEvent, Template
 
 import kodo.service.controller
-from kodo.log import logger
-from kodo.remote.launcher import FINAL_STATE, KILLED_STATE
-from kodo.remote.result import ExecutionResult
 from kodo import helper
+from kodo.log import logger
+from kodo.remote.launcher import FINAL_STATE
+from kodo.remote.result import ExecutionResult
+
 
 class ExecutionControl(kodo.service.controller.Controller):
 

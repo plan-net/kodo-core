@@ -1,6 +1,6 @@
 import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, RootModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict

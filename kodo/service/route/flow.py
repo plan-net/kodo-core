@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, Literal, Optional, Tuple, Union
 
 from litestar import MediaType, Request, Response, get, post, route
 from litestar.datastructures import State

@@ -14,7 +14,8 @@ from kodo import helper
 from kodo.datatypes import DynamicModel, Flow, LaunchResult
 from kodo.log import logger
 from kodo.remote.launcher import (BREAK_STATE, DIED_STATE, EVENT_LOG,
-                                  FINAL_STATE, ev_format, INITIAL_STATE, KILLED_STATE)
+                                  FINAL_STATE, INITIAL_STATE, KILLED_STATE,
+                                  ev_format)
 
 
 class ExecutionResult:

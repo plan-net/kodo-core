@@ -11,7 +11,7 @@ from kodo.remote.launcher import (BOOTING_STATE, BREAK_STATE, COMPLETED_STATE,
                                   RETURNING_STATE, STARTING_STATE,
                                   STOPPING_STATE, VENV_MODULE)
 from kodo.remote.result import ExecutionResult
-from kodo.datatypes import DynamicModel
+
 
 @ray.remote
 class EventStream:

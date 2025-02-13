@@ -1,9 +1,9 @@
-import os
-from typing import Any, Protocol
+from typing import Protocol
 
 from litestar import Request
 from litestar.connection import ASGIConnection
-from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
+from litestar.exceptions import (NotAuthorizedException,
+                                 PermissionDeniedException)
 from litestar.middleware import (AbstractAuthenticationMiddleware,
                                  AuthenticationResult)
 from litestar.types import ASGIApp, Receive, Scope, Send

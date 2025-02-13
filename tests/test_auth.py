@@ -1,17 +1,14 @@
 import json
 import os
 import tempfile
-import threading
 
 import httpx
 import jwt
 import pandas as pd
 import pytest
-import requests
-from pytest_httpserver import HTTPServer, httpserver
+from pytest_httpserver import HTTPServer
 
-from kodo.service.node import run_service
-from kodo.service.security import JWKS, JWTAuthMiddleware, validate_jwt
+from kodo.service.security import JWKS, validate_jwt
 from tests.shared import *
 
 

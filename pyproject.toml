@@ -29,7 +29,8 @@ tests = [
     "pytest-asyncio",
     "pytest-httpserver",
     "isort",
-    "autopep8"
+    "autopep8",
+    "pytest_httpserver"
 ]
 
 [tool.setuptools.package-data]

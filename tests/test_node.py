@@ -1,9 +1,7 @@
-import time
 import urllib.parse
-import asyncio
+
 import httpx
 import pandas as pd
-import pytest
 import yaml
 
 from tests.assets.agent50 import data as test_data
