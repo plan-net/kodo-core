@@ -1,12 +1,15 @@
 import multiprocessing
+import os
 import time
 import traceback
 from pathlib import Path
 
 import httpx
 import pytest
+import ray
 
 from kodo.service.node import run_service
+from kodo.remote.launcher import RAY_ENV, RAY_NAMESPACE
 
 
 class Process(multiprocessing.Process):
@@ -48,7 +51,7 @@ class Service:
         self.process.start()
         while True:
             try:
-                resp = httpx.get(self.url, timeout=600)
+                resp = httpx.get(f"{self.url}/home", timeout=600)
                 if resp.status_code == 200:
                     break
             except:
@@ -59,7 +62,7 @@ class Service:
     def wait(self):
         while True:
             try:
-                resp = httpx.get(self.url, timeout=600)
+                resp = httpx.get(f"{self.url}/home", timeout=600)
                 if resp.status_code == 200:
                     if resp.json()["idle"]:
                         break
@@ -81,3 +84,20 @@ def cleanup():
     for proc in multiprocessing.active_children():
         proc.terminate()
         proc.join()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def use_ray():
+    os.system("ray start --head")
+    ray.init(
+        address="localhost:6379", 
+        ignore_reinit_error=False,
+        namespace=RAY_NAMESPACE,
+        configure_logging=True,
+        logging_level="DEBUG",
+        log_to_driver=True,
+        runtime_env=RAY_ENV
+    )
+    yield
+    ray.shutdown()
+    os.system("ray stop")

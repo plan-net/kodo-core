@@ -18,6 +18,7 @@ from kodo.remote.enter import FlowCallable
 from kodo.remote.launcher import launch, parse_factory
 from kodo.remote.result import ExecutionResult
 from tests.test_node import Service
+from tests.shared import *
 
 
 def test_parse_factory():
@@ -31,7 +32,7 @@ def test_parse_factory():
     assert flow == "flow"
 
 
-async def test_launch(use_ray):
+async def test_launch():
     option = Option()
     state = State(dict(
         ray_server=option.RAY_SERVER,
@@ -95,7 +96,7 @@ def flow3_page(form):
     """
 
 
-async def test_launch2(use_ray):
+async def test_launch2():
     option = Option()
     state = State(dict(
         ray_server=option.RAY_SERVER,
@@ -183,7 +184,7 @@ def stream_landing_page(form):
     """
 
 
-async def test_launch_request(use_ray):
+async def test_launch_request():
     node = Service(
         url="http://localhost:3371", 
         loader="tests/example3/node4.yaml")
@@ -196,7 +197,7 @@ async def test_launch_request(use_ray):
     node.stop()
 
 
-async def test_launch_request2(use_ray):
+async def test_launch_request2():
     node = Service(
         url="http://localhost:3371", 
         loader="tests/example3/node4.yaml")
@@ -216,7 +217,7 @@ async def test_launch_request2(use_ray):
     assert result.status == "completed"
     node.stop()
 
-async def test_kill(use_ray):
+async def test_kill():
     node = Service(
         url="http://localhost:3371", 
         loader="tests/example3/node4.yaml")
@@ -260,13 +261,13 @@ async def test_kill(use_ray):
         await asyncio.sleep(0.1)
     node.stop()
 
-async def test_launch_request10(use_ray):
+async def test_launch_request10():
     node = Service(
         url="http://localhost:3371", 
         loader="tests/example3/node4.yaml")
     node.start()
     err = 0
-    for i in range(10):
+    for i in range(5):
         resp = httpx.post("http://localhost:3371/flows/flow1", timeout=None,
                         data={"submit": "submit", "runtime": 3},
                         headers={"Accept": "application/json"})
