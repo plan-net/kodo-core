@@ -21,7 +21,7 @@ from kodo.log import LOG_FORMAT, logger
 WINDOWS = ("Scripts", "python.exe")
 LINUX = ("bin", "python")
 
-VENV_MODULE = "kodo.remote.enter"
+VENV_MODULE = "kodo.adapter"
 EXEC_MODULE = "kodo.remote.executor"
 EVENT_LOG = "event.log"
 STDOUT_FILE = "stdout.log"
@@ -119,6 +119,10 @@ class LaunchStream:
         return self._error
     
     def set_launch(self, instance: Launch) -> None:
+        import debugpy
+        if not debugpy.is_client_connected():
+            debugpy.listen(("localhost", 63255))
+            debugpy.wait_for_client() 
         self._launch = {
             "args": instance.args, 
             "inputs": instance.inputs
