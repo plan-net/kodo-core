@@ -12,7 +12,7 @@ from kodo import helper
 from kodo.common import Launch, publish
 from kodo.adapter import now
 from kodo.datatypes import Flow, Option
-from kodo.remote.enter import FlowCallable
+from kodo.adapter import FlowCallable
 from kodo.remote.launcher import launch, parse_factory
 from kodo.remote.result import ExecutionResult
 from tests.test_node import Service
