@@ -135,17 +135,17 @@ def main(debug: bool, server: str, exec_path: str) -> None:
 
 
 if __name__ == "__main__":
-    if sys.gettrace() is not None or "debugpy" in sys.modules:
-        main(True, *sys.argv[1:3])
-        sys.exit(0)
-    else:
-        pid = os.fork()
-        if pid > 0:
-            os.waitpid(pid, 0) 
-            sys.exit(0)
-        os.setsid()
-        pid = os.fork()
-        if pid > 0:
-            os.waitpid(pid, 0)
-            os._exit(0)
-        main(False, *sys.argv[1:3])
+    # if sys.gettrace() is not None or "debugpy" in sys.modules:
+    #     main(True, *sys.argv[1:3])
+    #     sys.exit(0)
+    # else:
+    #     pid = os.fork()
+    #     if pid > 0:
+    #         os.waitpid(pid, 0) 
+    #         sys.exit(0)
+    #     os.setsid()
+    #     pid = os.fork()
+    #     if pid > 0:
+    #         os.waitpid(pid, 0)
+    #         os._exit(0)
+    main(False, *sys.argv[1:3])

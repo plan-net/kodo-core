@@ -73,6 +73,10 @@ def parse_factory(state: State, entry_point: str) -> Tuple[str, str, str, str]:
 class LaunchStream:
     
     def __init__(self):
+        # import debugpy
+        # if not debugpy.is_client_connected():
+        #     debugpy.listen(("localhost", 63255))
+        #     debugpy.wait_for_client() 
         self._data = {}
         self._body = None
         self._launch = None
@@ -119,10 +123,6 @@ class LaunchStream:
         return self._error
     
     def set_launch(self, instance: Launch) -> None:
-        import debugpy
-        if not debugpy.is_client_connected():
-            debugpy.listen(("localhost", 63255))
-            debugpy.wait_for_client() 
         self._launch = {
             "args": instance.args, 
             "inputs": instance.inputs
@@ -202,8 +202,7 @@ async def launch(state: State, flow: Flow, inputs: dict) -> LaunchResult:
         flow=flow_name, 
         inputs=inputs))
     proc = Popen(
-        [executable, "-m", VENV_MODULE, "enter", state.ray_server, fid], 
-        stdout=DEVNULL, stderr=DEVNULL, cwd=cwd)
+        [executable, "-m", VENV_MODULE, "enter", state.ray_server, fid], cwd=cwd)
     proc.wait()
     if proc.returncode != 0:
         error = ray.get(actor.get_error.remote())
